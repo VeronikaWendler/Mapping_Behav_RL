@@ -1,0 +1,46 @@
+TITLE-ABS-KEY(
+  "agent-based model*" OR
+  "agent based model*" OR
+  "agent-based simulation" OR
+  "agent based simulation" OR
+  "multi-agent simulation" OR
+  "multiagent simulation" OR
+  "social simulation" OR
+  "agent-based computational model*" OR
+  "individual-based model*" OR
+  "agent-based" OR
+  "computational social science"
+)
+AND
+TITLE-ABS-KEY(
+  econom* OR market* OR finance OR trading OR consumer* OR firm* OR organization* OR
+  environment OR environmental OR "pro-environmental" OR sustainab* OR sustainability OR
+  decision* OR choice OR preference* OR risk OR uncertainty OR experience OR
+  learning OR adaptation OR "bounded rationality" OR heurist* OR belief* OR expectation* OR
+  cooperation OR coordination OR competition OR negotiation OR trust OR
+  norm* OR compliance OR "social influence" OR
+  inequality OR segregation OR polarization OR diffusion OR contagion OR
+  "social network*" OR "opinion dynamics" OR "collective behavior" OR
+  psychology OR psychological OR cognitive OR cognition OR
+  attention OR "visual attention" OR vision OR perception OR
+  "computational cognition" OR "computational neuroscience" OR
+  neuroeconomics OR "decision neuroscience" OR
+  "eye tracking" OR eyetracking OR multimodal OR "behavioral data" OR
+  neuroimaging OR EEG OR fMRI
+)
+AND NOT
+TITLE-ABS-KEY(
+  robot* OR robotic* OR drone* OR
+  swarm* OR insect* OR animal* OR
+  sensor network* OR power grid* OR manufacturing OR logistics
+)
+
+
+
+
+Filters:
+Language: English
+Doc type: Article + Review + Conference Paper
+Subject areas: Social Sciences, Economics/Econometrics/Finance, Decision Sciences, Environmental Science, Learning, Computer Science
+
+Optional: Computer Science
