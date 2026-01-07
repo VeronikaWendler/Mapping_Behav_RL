@@ -1,3 +1,6 @@
+# rewritten from the original authors: https://osf.io/preprints/psyarxiv/6c2va_v1
+
+#libs
 from __future__ import annotations
 from pathlib import Path
 import pandas as pd
@@ -8,19 +11,16 @@ OUTPUT_CSV = Path("Data/data.csv")
 REQUIRED_BASE = ["Title", "Abstract", "References", "Author(s) ID"]
 
 def detect_delimiter(path: Path) -> str:
-    # read only the first line (header)
     header = path.read_text(encoding="utf-8-sig", errors="replace").splitlines()[0]
     counts = {
         "\t": header.count("\t"),
         ";": header.count(";"),
         ",": header.count(","),
     }
-    # pick delimiter with highest count
     delim = max(counts, key=counts.get)
     if counts[delim] == 0:
         raise ValueError(
-            "Could not detect delimiter (no tabs/semicolons/commas found in header). "
-            "Open the file in a text editor and check the raw separator."
+            "Could not detect delimiter"
         )
     print(f"Detected delimiter: {repr(delim)} with counts {counts}")
     return delim
@@ -39,17 +39,12 @@ def main() -> None:
         on_bad_lines="warn",
     )
 
-    # Drop completely empty columns (Scopus often exports blank columns -> "Unnamed: ...")
+    # Drop empty columns 
     df = df.loc[:, ~df.columns.str.match(r"^Unnamed")].copy()
-    # Also drop columns that are literally empty strings (can happen with ;;;;;;;;)
     df = df.loc[:, df.columns.astype(str).str.strip() != ""].copy()
-    # Strip whitespace from column names
     df.columns = [c.strip() for c in df.columns]
 
-    # Source column may be "Source title" OR "Source"
-    if "Source title" in df.columns:
-        source_col = "Source title"
-    elif "Source" in df.columns:
+    if "Source" in df.columns:
         source_col = "Source"
     else:
         source_col = None
@@ -58,11 +53,10 @@ def main() -> None:
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise ValueError(
-            f"Missing required columns in input file: {missing}\n"
             f"Available columns: {list(df.columns)}"
         )
 
-    # Replace "[No abstract available]" with NA
+    # Replace with NA
     df["Abstract"] = df["Abstract"].replace("[No abstract available]", pd.NA)
 
     # Stats
@@ -82,7 +76,6 @@ def main() -> None:
     print(f"Entries with incomplete author info: {n_no_auth}")
     print(f"Duplicate entries (Title + {source_col or 'Title'}): {n_dupes}")
 
-    # Filter + dedupe
     df_f = df.dropna(subset=["Abstract", "References", "Author(s) ID"]).copy()
     if source_col:
         df_f = df_f.drop_duplicates(subset=["Title", source_col], keep="first").copy()
