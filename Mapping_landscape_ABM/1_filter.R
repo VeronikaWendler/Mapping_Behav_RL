@@ -4,12 +4,10 @@ library(glmnet)
 
 use_python(Sys.which("python"), required = TRUE)
 
-# ---- output directory: one folder per run (no subfolders)
 run_id <- format(Sys.time(), "%Y%m%d_%H%M%S")
 out_dir <- file.path("Mapping_landscape_ABM", "Outputs", paste0("filter_run_", run_id))
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
-# ---- log everything into run.log
 log_con <- file(file.path(out_dir, "run.log"), open = "wt")
 sink(log_con, split = TRUE)         # console output
 sink(log_con, type = "message")     # warnings/errors
@@ -23,14 +21,14 @@ on.exit({
   close(log_con)
 }, add = TRUE)
 
-# ensure non-interactive plotting works on cluster
+# non-interactive plotting works on cluster
 options(device = "png")
 
-# ---- SBERT
+# SBERT
 sbert <- reticulate::import("sentence_transformers")
 model <- sbert$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
-# ---- labels
+# labels
 labels <- read_csv("Mapping_landscape_ABM/Data/data_selected_labels_3.csv")
 
 cat(sprintf("[%s] Encoding labels (%d abstracts)...\n", Sys.time(), nrow(labels))); flush.console()
@@ -41,7 +39,7 @@ cat(sprintf("[%s] Saved label embeddings.\n", Sys.time())); flush.console()
 z <- function(x) (x - mean(x)) / sd(x)
 for (i in 1:ncol(emb)) emb[, i] <- z(emb[, i])
 
-# ---- CV
+# CV
 nrun <- 100
 lambdas <- exp(seq(-10, 10, 1))
 res <- array(dim = c(nrun, length(lambdas), 2))
@@ -79,11 +77,11 @@ write_csv(
   file.path(out_dir, "cv_summary.csv")
 )
 
-# ---- refit best model
+# refit best model
 best_lambda <- lambdas[which.min(dev)]
 m <- glmnet(emb, labels$out_of_scope, family = "binomial", alpha = 0, lambda = best_lambda)
 
-# ---- apply
+# apply
 data <- read_csv("Mapping_landscape_ABM/Data/data_cleaned_3.csv")
 
 cat(sprintf("[%s] Encoding full data (%d abstracts)...\n", Sys.time(), nrow(data))); flush.console()
@@ -94,8 +92,5 @@ pred_class <- predict(m, newx = data_emb, type = "class") |> as.integer()
 data_filtered <- data |> filter(pred_class == 0)
 write_csv(data_filtered, file.path(out_dir, "data_cleaned_filtered_3.csv"))
 
-
 cat(sprintf("[%s] Wrote filtered data: %d/%d rows kept.\n",
             Sys.time(), nrow(data_filtered), nrow(data))); flush.console()
-
-

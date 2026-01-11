@@ -2,7 +2,6 @@
 #SBATCH --job-name=map_filter
 #SBATCH --time=24:00:00
 #SBATCH --mem=64G
-#SBATCH --mem=180G
 #SBATCH --output=logs/%x.%j.out
 #SBATCH --error=logs/%x.%j.err
 #SBATCH --mail-type=END,FAIL
