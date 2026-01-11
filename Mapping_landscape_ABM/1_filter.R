@@ -58,4 +58,3 @@ write_csv(data_filtered, "Mapping_landscape_ABM/Data/data_cleaned_filtered_2.csv
 
 
 
-
