@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=map_filter
 #SBATCH --time=24:00:00
+#SBATCH --cpus-per-task=6
 #SBATCH --mem=64G
 #SBATCH --output=logs/%x.%j.out
 #SBATCH --error=logs/%x.%j.err
@@ -11,7 +12,8 @@ set -euo pipefail
 mkdir -p logs
 
 module purge
-module load R
+module load bear-apps/2024a/live
+module load R/4.5.0-gfbf-2024a
 
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
@@ -23,5 +25,4 @@ export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 
 cd ~/projects/Mapping_Behav_RL
-
 Rscript Mapping_landscape_ABM/1_filter.R
