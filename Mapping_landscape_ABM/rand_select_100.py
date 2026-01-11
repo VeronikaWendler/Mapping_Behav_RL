@@ -3,7 +3,7 @@
 import pandas as pd
 from pathlib import Path
 
-in_path = Path(r"D:\Birmingham_Uni_Oct25\Papers\Mapping_Behav_RL\Mapping_landscape_ABM\Data\data_cleaned.csv")
+in_path = Path(r"D:\Birmingham_Uni_Oct25\Papers\Mapping_Behav_RL\Mapping_landscape_ABM\Data\data_cleaned_2.csv")
 out_path = in_path.parent / "data_rand_100_labels.csv"
 df = pd.read_csv(in_path)
 

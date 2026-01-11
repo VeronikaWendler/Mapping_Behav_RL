@@ -6,3 +6,6 @@ Mapping_landscape_RL/1_data.zip
 Mapping_landscape_RL/1_data/
 
 .vscode/
+.Rproj.user/
+form/
+conda_env/

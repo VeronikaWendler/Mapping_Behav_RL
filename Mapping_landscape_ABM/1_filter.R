@@ -1,14 +1,15 @@
 require(tidyverse)
 require(reticulate)
 require(glmnet)
-use_condaenv("form")
+use_condaenv("conda_env", required = TRUE)
+
 
 sbert = import("sentence_transformers")
 model = sbert$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
-# EVAL PERFORMANCE ----
+# ---
 
-labels = read_tsv("1_data/filtering_labels.csv")
+labels = read_tsv("Mapping_landscape_ABM/Data/data_selected_labels_2.csv")
 
 emb = model$encode(labels$abstract)
 
@@ -42,7 +43,7 @@ m = glmnet(emb, labels$out_of_scope, family = "binomial", alpha = 0, lambda = be
 
 # APPLY ----
 
-data = read_csv("1_data/data_cleaned.csv")
+data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_2.csv")
 
 data_emb = model$encode(data$Abstract_cleaned)
 for(i in 1:ncol(data_emb)) data_emb[,i] = z(data_emb[,i])
@@ -52,7 +53,8 @@ label = predict(m, newx = data_emb, type = "response")
 
 data_filtered = data |> filter(label == 0)
 
-write_csv(data_filtered, "1_data/data_cleaned_filtered.csv")
+write_csv(data_filtered, "Mapping_landscape_ABM/Data/data_cleaned_filtered_2.csv")
+
 
 
 

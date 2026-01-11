@@ -8,7 +8,7 @@ from sklearn.metrics import log_loss, accuracy_score
 from tqdm import trange
 
 
-labels = pd.read_csv("1_data/filtering_labels.csv")
+labels = pd.read_csv("data/filtering_labels.csv")
 
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 emb = model.encode(labels["abstract"].tolist(), show_progress_bar=True)
@@ -37,7 +37,7 @@ for i in trange(nrun):
     for j, lam in enumerate(lambdas):
         clf = LogisticRegression(
             penalty="l2",
-            C=1/lam,              # IMPORTANT: C = 1 / lambda
+            C=1/lam,            
             solver="lbfgs",
             max_iter=5000
         )
