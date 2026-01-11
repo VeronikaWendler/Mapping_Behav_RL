@@ -64,11 +64,11 @@ for (i in 1:nrun) {
 acc <- colMeans(res[, , 1], na.rm = TRUE)
 dev <- colMeans(res[, , 2], na.rm = TRUE)
 
-png(file.path(out_dir, "cv_accuracy.png"), width = 1200, height = 800)
+png(file.path(out_dir, "cv_accuracy.png"), width = 1200, height = 800, type = "cairo")
 plot(acc, type = "l", xlab = "lambda index", ylab = "Accuracy")
 dev.off()
 
-png(file.path(out_dir, "cv_deviance.png"), width = 1200, height = 800)
+png(file.path(out_dir, "cv_deviance.png"), width = 1200, height = 800, type = "cairo")
 plot(dev, type = "l", xlab = "lambda index", ylab = "Deviance (-2 loglik)")
 dev.off()
 
