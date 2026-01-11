@@ -1,3 +1,4 @@
+install.packages(c("glmnet","reticulate","tidyverse"), repos="https://cloud.r-project.org")
 library(tidyverse)
 library(reticulate)
 library(glmnet)
