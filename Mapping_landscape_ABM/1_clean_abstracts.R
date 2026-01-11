@@ -1,10 +1,10 @@
 require(tidyverse)
 
-data = read_csv("Mapping_landscape_ABM/Data/data.csv")
+data = read_csv("Mapping_landscape_ABM/Data/data_selected_labels_2.csv")
 
 # in one abstract, a greater-than-equal sign is misrepresented by a copyright sign, fix this manually:
 data <- data %>%
-  mutate(Abstract = str_replace(Abstract, "31 patients aged ©60 years", "31 patients aged ⩾60 years"))
+  mutate(Abstract_cleaned = str_replace(Abstract_cleaned, "31 patients aged ©60 years", "31 patients aged ⩾60 years"))
 
 
 # define copyright statements and similar with regular expressions
@@ -24,7 +24,7 @@ regex_list <- c(regex_copyright_start, regex_psycinfo, regex_copyright, regex_si
 
 # clean abstracts by removing regex matches
 data <- data %>%
-  mutate(Abstract_cleaned = str_remove_all(Abstract, pattern=paste(regex_list, collapse="|")))
+  mutate(Abstract_cleaned = str_remove_all(Abstract_cleaned, pattern=paste(regex_list, collapse="|")))
 
 
 # plot histogram of abstract length
@@ -83,4 +83,4 @@ data <- data %>%
   mutate(Abstract_cleaned = str_remove_all(Abstract_cleaned, pattern=regex_organizers))
 
 
-write_csv(data, "Mapping_landscape_ABM/Data/data_cleaned.csv")
+write_csv(data, "Mapping_landscape_ABM/Data/data_selected_labels_3.csv")
