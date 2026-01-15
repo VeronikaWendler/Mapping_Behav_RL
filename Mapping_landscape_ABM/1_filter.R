@@ -29,7 +29,7 @@ sbert <- reticulate::import("sentence_transformers")
 model <- sbert$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 # labels
-labels <- read_csv("Mapping_landscape_ABM/Data/data_selected_labels_3.csv")
+labels <- read_csv("Mapping_landscape_ABM/Data/data_selected_labels_4.csv")
 
 cat(sprintf("[%s] Encoding labels (%d abstracts)...\n", Sys.time(), nrow(labels))); flush.console()
 emb <- model$encode(labels$abstract, show_progress_bar = TRUE)
@@ -43,7 +43,7 @@ for (i in 1:ncol(emb)) emb[, i] <- z(emb[, i])
 nrun <- 100
 lambdas <- exp(seq(-10, 10, 1))
 res <- array(dim = c(nrun, length(lambdas), 2))
-set.seed(42)
+set.seed(100)                                                          # use seed 42 for the first run (for data_cleaned_filtered_3.csv), for data_cleaned_filtered_4.csv use seed(100)
 
 for (i in 1:nrun) {
   cat(sprintf("[%s] CV run %d/%d\n", Sys.time(), i, nrun)); flush.console()
@@ -90,7 +90,7 @@ data_emb <- model$encode(data$Abstract_cleaned, show_progress_bar = TRUE)
 for(i in 1:ncol(data_emb)) data_emb[,i] <- z(data_emb[,i])
 pred_class <- predict(m, newx = data_emb, type = "class") |> as.integer()
 data_filtered <- data |> filter(pred_class == 0)
-write_csv(data_filtered, file.path(out_dir, "data_cleaned_filtered_3.csv"))
+write_csv(data_filtered, file.path(out_dir, "data_cleaned_filtered_4.csv"))
 
 cat(sprintf("[%s] Wrote filtered data: %d/%d rows kept.\n",
             Sys.time(), nrow(data_filtered), nrow(data))); flush.console()
