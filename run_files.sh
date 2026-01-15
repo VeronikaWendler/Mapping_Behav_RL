@@ -5,7 +5,7 @@
 #SBATCH --mem=64G
 #SBATCH --output=logs/%x.%j.out
 #SBATCH --error=logs/%x.%j.err
-#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-type=ALL
 #SBATCH --mail-user=vaw508@bham.ac.uk
 
 set -euo pipefail
