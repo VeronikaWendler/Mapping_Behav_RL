@@ -29,7 +29,11 @@ sbert <- reticulate::import("sentence_transformers")
 model <- sbert$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 # labels
-labels <- read_csv("Mapping_landscape_ABM/Data/data_selected_labels_4.csv")
+#labels <- read_csv("Mapping_landscape_ABM/Data/data_selected_labels_4.csv")
+labels <- read_csv("Mapping_landscape_ABM/Data/data_selected_labels_4.csv") |>
+  mutate(
+    out_of_scope = as.integer(out_of_scope)
+  )
 
 cat(sprintf("[%s] Encoding labels (%d abstracts)...\n", Sys.time(), nrow(labels))); flush.console()
 emb <- model$encode(labels$abstract, show_progress_bar = TRUE)
