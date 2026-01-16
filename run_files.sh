@@ -2,11 +2,11 @@
 #SBATCH --job-name=map_cosine                      # should be changed to whatever you are running, otherwise confusion 
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=6
-#SBATCH --mem=100G
+#SBATCH --mem=64G
 #SBATCH --output=logs/%x.%j.out
 #SBATCH --error=logs/%x.%j.err
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=vaw508@bham.ac.uk
+#SBATCH --mail-user=VAW508@student.bham.ac.uk
 
 set -euo pipefail
 mkdir -p logs
