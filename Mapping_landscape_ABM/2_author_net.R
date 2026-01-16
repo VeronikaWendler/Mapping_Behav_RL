@@ -35,7 +35,7 @@ rownames(author_emb) = data$id
 author_cos = arma_cosine(author_emb); author_cos[is.na(author_cos)] = 0
 rownames(author_cos) = colnames(author_cos) = data$Authors
 
-# check, instead of looking at Dirk Wulff, pick any paper row and show nearest neighbours
+# check, instead of looking at Dirk Wulff, pick any paper row and show nearest neighbours #
 set.seed(100)
 i = sample(1:nrow(data), 1)
 sort(author_cos[i,], decreasing = TRUE)[1:10]
