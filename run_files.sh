@@ -26,4 +26,6 @@ export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 
 cd ~/projects/Mapping_Behav_RL
-Rscript Mapping_landscape_ABM/2_semantic_net.R
+python Mapping_landscape_ABM/2.1_semantic_ratings.py          # change to Rscript for R
+
+
