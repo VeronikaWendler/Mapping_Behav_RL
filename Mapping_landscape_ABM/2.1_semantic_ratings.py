@@ -35,7 +35,7 @@ def run_parallel_map(system_prompt, users, workers=10):
     return results
 
 
-train = pd.read_csv("1_data/semantic_training/train_pairs.csv")
+train = pd.read_csv("Mapping_landscape_ABM/Data/semantic_training/train_pairs.csv")
 
 pairs = ["-- Article 1 --\n" + i + "\n\n-- Article 2 --\n" + j for i, j in zip(train["text_i"].values, train["text_j"].values)]
 
