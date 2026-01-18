@@ -1,6 +1,9 @@
 require(tidyverse)
 require(reticulate)
-use_condaenv("mapping_abm", required = TRUE)
+Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
+use_condaenv("mapping_abm", required=TRUE)
+print(py_config())
+
 require(remotes)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
