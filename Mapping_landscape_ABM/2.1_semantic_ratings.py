@@ -5,27 +5,27 @@ import time
 from functools import partial # Import partial
 
 # an API gets imported, ok
-with open("1_data/semantic_training/api.txt", "r") as f:
-  api = f.readlines()
+with open("Mapping_landscape_ABM/Data/semantic_training/api.txt", "r") as f:
+    url = f.readline().strip()
+    auth = f.readline().strip()
 
-url = api[0]
+headers = {"Authorization": auth, "Content-Type": "application/json"}
+
 
 headers = {
     'Authorization': api[1],
     'Content-Type': 'application/json'
 }
 
-def run(system, user):
-    data = {
-        "model": "Llama-3.3-70B-Instruct",
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user}
-        ]
+def run(system, user, timeout=90):
+    payload = {
+        "model": "gpt-4o-mini",
+        "input": f"{system}\n\n{user}",
     }
-
-    response = requests.post(url, headers=headers, json=data)
-    return response.json()["choices"][0]["message"]["content"]
+    r = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    if r.status_code != 200:
+        return f"ERROR status={r.status_code} body={r.text[:300]}"
+    return r.json().get("output_text", "")
 
 
 def run_parallel_map(system_prompt, users, workers=10):
