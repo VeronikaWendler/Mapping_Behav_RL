@@ -1,16 +1,17 @@
 require(tidyverse)
 require(reticulate)
-use_condaenv("form")
+use_condaenv("mapping_abm", required = TRUE)
 require(remotes)
-Rcpp::sourceCpp("2_code/_helpers.cpp")
+Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
 remotes::install_github("https://github.com/dwulff/memnet")
 
-data = read_csv("1_data/data_cleaned_filtered.csv") |> mutate(text = paste0("Title: ", Title, ".\nAbstract: ", Abstract_cleaned))
+data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_4_200.csv") |> mutate(text = paste0("Title: ", Title, ".\nAbstract: ", Abstract_cleaned))
 
 # GENERATE TRAINING EXAMPLES -----
 #reticulate::py_install("sentence-transformers")
 #use_python("/path/to/python", required = TRUE)
+
 sbert = import("sentence_transformers")
 model = sbert$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 embed = model$encode(data$text)
@@ -50,16 +51,16 @@ train_pairs = train_pairs |>
   mutate(text_i = texts[as.character(i)],
          text_j = texts[as.character(j)])
 
-write_csv(train_pairs, "1_data/semantic_training/train_pairs.csv")
+write_csv(train_pairs, "Mapping_landscape_ABM/Data/semantic_training/train_pairs.csv")
 
-# # PROCESS RATINGS -----
+# PROCESS RATINGS -----
 
 # train_pairs_ratings = read_csv("1_data/semantic_training/train_pairs_ratings.csv") |> 
 #   mutate(rating = out |> str_extract("Answer=[:digit:]+[:punct:]*$") |> str_remove("Answer=") |> str_remove_all("[:punct:]") |> as.numeric(),
 #          rating_scaled = rating / 100) |> 
 #   select(-1)
 
-# write_csv(train_pairs_ratings, "1_data/semantic_training/train_pairs_rating_clean.csv")
+# write_csv(train_pairs_ratings, "Mapping_landscape_ABM/Data/semantic_training/train_pairs_rating_clean.csv")
 
 
 # # GENERATE NET -----
@@ -73,4 +74,6 @@ write_csv(train_pairs, "1_data/semantic_training/train_pairs.csv")
 # sem_emb = model$encode(paste0(context, data$text))
 # rownames(sem_emb) = data$id
 
-# saveRDS(sem_emb, "1_data/embs/semantic_emb.RDS")
+# saveRDS(sem_emb, "Mapping_landscape_ABM/Data/embs/semantic_emb.RDS")
+
+

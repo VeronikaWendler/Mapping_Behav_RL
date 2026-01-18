@@ -26,4 +26,4 @@ export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 
 cd ~/projects/Mapping_Behav_RL
-Rscript Mapping_landscape_ABM/2_references_net.R
+Rscript Mapping_landscape_ABM/2_semantic_net.R
