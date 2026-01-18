@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=map_cosine                      # should be changed to whatever you are running, otherwise confusion 
+#SBATCH --job-name=2.1_semantic_ratings                      # should be changed to whatever you are running, otherwise confusion 
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=64G
