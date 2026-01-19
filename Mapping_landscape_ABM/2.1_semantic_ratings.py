@@ -11,20 +11,51 @@ with open("Mapping_landscape_ABM/Data/semantic_training/api.txt", "r") as f:
 
 headers = {"Authorization": auth, "Content-Type": "application/json"}
 
-def run(system, user, timeout=90):
+def run(system, user, timeout=180, max_retries=5):
     payload = {
         "model": "gpt-4o-mini",
         "input": f"{system}\n\n{user}",
     }
-    r = requests.post(url, headers=headers, json=payload, timeout=timeout)
-    if r.status_code != 200:
-        return f"ERROR status={r.status_code} body={r.text[:300]}"
-    return r.json().get("output_text", "")
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            r = requests.post(url, headers=headers, json=payload, timeout=timeout)
+
+            if r.status_code in (429, 500, 502, 503, 504):
+                wait = min(60, 2 ** attempt)
+                time.sleep(wait)
+                continue
+
+            if r.status_code != 200:
+                return f" !Problem! status={r.status_code} body={r.text[:300]}"
+
+            return r.json().get("output_text", "")
+
+        except requests.exceptions.ReadTimeout:
+            wait = min(60, 2 ** attempt)
+            time.sleep(wait)
+        except requests.exceptions.RequestException as e:
+            wait = min(60, 2 ** attempt)
+            time.sleep(wait)
+
+    return "timeout"
 
 def run_parallel_map(system_prompt, users, workers=10):
     func = partial(run, system_prompt)
+    results = [None] * len(users)
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-        return list(executor.map(func, users))
+        future_to_idx = {executor.submit(func, u): idx for idx, u in enumerate(users)}
+
+        for fut in concurrent.futures.as_completed(future_to_idx):
+            idx = future_to_idx[fut]
+            try:
+                results[idx] = fut.result()
+            except Exception as e:
+                results[idx] = f"!Problem! exception={repr(e)}"
+
+    return results
+
 
 # Paths 
 in_path = "Mapping_landscape_ABM/Data/semantic_training/train_pairs.csv"
@@ -73,6 +104,7 @@ final_user_prompts = [
 # Find where to start to resume if it crashes
 out_series = train["out"].fillna("").astype(str)
 done_mask = (out_series.str.contains("Answer=")) | (out_series.str.len() > 0)
+
 
 start_idx = int(done_mask.sum())  
 # start_idx = int((~done_mask).idxmax()) if not done_mask.all() else len(train)
