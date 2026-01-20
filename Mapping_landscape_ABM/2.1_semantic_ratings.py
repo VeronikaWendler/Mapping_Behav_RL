@@ -8,7 +8,7 @@ import pandas as pd
 from functools import partial
 
 
-PILOT_N = 300      
+PILOT_N = 500      
 BATCH_SIZE = 10
 WORKERS = 2
 TIMEOUT = 120
