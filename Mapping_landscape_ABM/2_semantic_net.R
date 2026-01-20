@@ -58,12 +58,16 @@ write_csv(train_pairs, "Mapping_landscape_ABM/Data/semantic_training/train_pairs
 
 # PROCESS RATINGS -----
 
-# train_pairs_ratings = read_csv("1_data/semantic_training/train_pairs_ratings.csv") |> 
-#   mutate(rating = out |> str_extract("Answer=[:digit:]+[:punct:]*$") |> str_remove("Answer=") |> str_remove_all("[:punct:]") |> as.numeric(),
-#          rating_scaled = rating / 100) |> 
-#   select(-1)
+train_pairs_ratings = read_csv("Mapping_landscape_ABM/Data/semantic_training/train_pairs_ratings.csv") |> 
+  mutate(
+    rating = out |> str_extract("Answer=[:digit:]+") |> str_remove("Answer=") |> as.numeric(),
+    rating_scaled = rating / 100
+  ) |> 
+  filter(!is.na(rating_scaled)) |>          # drop ERROR rows / blanks
+  select(-1)                                # keep if your CSV has an X1 index column; otherwise remove
 
-# write_csv(train_pairs_ratings, "Mapping_landscape_ABM/Data/semantic_training/train_pairs_rating_clean.csv")
+write_csv(train_pairs_ratings, "Mapping_landscape_ABM/Data/semantic_training/train_pairs_rating_clean.csv")
+
 
 
 # # GENERATE NET -----
