@@ -25,7 +25,7 @@ https://osf.io/preprints/psyarxiv/6c2va_v1
 - An official release by the original authors.
 - A replacement for the original OSF materials.
 
-## Citation (APA)
+## Cite
 
 Thoma, A., Bolenz, F., Tiede, K., Yang, Y., Palminteri, S., Hertwig, R., & Wulff, D. (2025). *Mapping the landscape of behavioral reinforcement learning research*. PsyArXiv. https://osf.io/preprints/psyarxiv/6c2va_v1
 
