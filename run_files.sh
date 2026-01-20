@@ -26,6 +26,6 @@ export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/3.1_tags.py         # change to Rscript for R
+Rscript Mapping_landscape_ABM/3_taxonomy.R        # change to Rscript or python 
 
 
