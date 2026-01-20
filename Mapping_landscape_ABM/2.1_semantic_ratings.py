@@ -14,7 +14,7 @@ WORKERS = 2
 TIMEOUT = 120
 MAX_RETRIES = 6
 
-MODEL = "llama-3.3-70b-versatile"                        # instead of meta-llama/ ...3.3-70B 
+MODEL = "meta-llama/Llama-3.3-70B-Instruct"
 MAX_TOKENS = 10
 TEMPERATURE = 0.0
 
