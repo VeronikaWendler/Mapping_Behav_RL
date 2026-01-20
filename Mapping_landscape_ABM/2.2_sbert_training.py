@@ -6,14 +6,13 @@ def ensure(pkg, import_name=None):
         importlib.import_module(name)
     except ImportError:
         print(f"Installing missing package: {pkg}", flush=True)
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", pkg])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", pkg, "--no-input"])
 
 ensure("datasets")
+ensure("accelerate", "accelerate")    
 ensure("pandas")
 ensure("scikit-learn", "sklearn")
 ensure("scipy")
-
-
 from sentence_transformers import SentenceTransformer, InputExample, losses
 from torch.utils.data import DataLoader
 import pandas as pd
