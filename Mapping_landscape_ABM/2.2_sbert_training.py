@@ -1,3 +1,19 @@
+import sys, subprocess, importlib
+
+def ensure(pkg, import_name=None):
+    name = import_name or pkg
+    try:
+        importlib.import_module(name)
+    except ImportError:
+        print(f"Installing missing package: {pkg}", flush=True)
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", pkg])
+
+ensure("datasets")
+ensure("pandas")
+ensure("scikit-learn", "sklearn")
+ensure("scipy")
+
+
 from sentence_transformers import SentenceTransformer, InputExample, losses
 from torch.utils.data import DataLoader
 import pandas as pd
@@ -48,7 +64,7 @@ context = "An article on behavioral reinforcement learning:\n\n"
 data["text_i"] = context + data["text_i"]
 data["text_j"] = context + data["text_j"]
 data["rating_scaled"] = data["rating_scaled"].astype(float)
-print(data)
+print(data.head(3))
 
 # Normalize ratings to range 0-1 if they aren't already
 # This is important for CosineSimilarityLoss
