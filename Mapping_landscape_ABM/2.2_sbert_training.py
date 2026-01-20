@@ -178,3 +178,4 @@ model.fit(
 print("\nSave model")
 model.save("Mapping_landscape_ABM/Data/semantic_training/minilm_ft")
 
+

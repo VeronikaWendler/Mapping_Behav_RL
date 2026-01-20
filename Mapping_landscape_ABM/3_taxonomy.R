@@ -1,6 +1,11 @@
 require(tidyverse)
 require(reticulate)
 #use_condaenv("form")
+
+Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
+use_condaenv("mapping_abm", required=TRUE)
+print(py_config())
+
 require(remotes)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
@@ -14,7 +19,6 @@ tags = read_csv("Mapping_landscape_ABM/Data/tagging/data_tags_v1.csv") %>%
 tags_tab = tags$tags |> unlist() |> table() |> sort(decreasing = T)
 
 # EMBED ---
-
 torch = import("torch")
 st = import("sentence_transformers")
 
