@@ -7,16 +7,14 @@ import concurrent.futures
 import pandas as pd
 from functools import partial
 
-# ----------------------------
-# CONFIG (pilot)
-# ----------------------------
-PILOT_N = 50      
+
+PILOT_N = 300      
 BATCH_SIZE = 10
 WORKERS = 2
 TIMEOUT = 120
 MAX_RETRIES = 6
 
-MODEL = "meta-llama/Llama-3.3-70B-Instruct" 
+MODEL = "llama-3.3-70b-versatile"                        # instead of meta-llama/ ...3.3-70B 
 MAX_TOKENS = 10
 TEMPERATURE = 0.0
 
@@ -31,8 +29,7 @@ with open(API_PATH, "r") as f:
 headers = {"Authorization": auth, "Content-Type": "application/json"}
 
 # ----------------------------
-# Request function
-# ----------------------------
+
 def run(system, user, timeout=TIMEOUT, max_retries=MAX_RETRIES):
     payload = {
         "model": MODEL,
@@ -122,25 +119,26 @@ task_description = (
     "to 100 (same topic). Return ONLY: Answer=NN"
 )
 
+sub = train.iloc[start_idx:end_total]
+
 pairs = [
     "-- Article 1 --\n" + str(i) + "\n\n-- Article 2 --\n" + str(j)
-    for i, j in zip(train["text_i"].values, train["text_j"].values)
+    for i, j in zip(sub["text_i"].values, sub["text_j"].values)
 ]
-
 prompts = [f"{task_description}\n\n{pair}\n\nReturn ONLY: Answer=NN" for pair in pairs]
-
 
 
 print("\nSMOKE TEST...")
 smoke = run(system_prompt, "Return ONLY: Answer=7")
 print("SMOKE OUT:", smoke)
 if not ANSWER_RE.search(smoke or ""):
-    print("Smoke test did not return Answer=NN. Check billing/access/model/provider.")
+    raise SystemExit("Smoke test failed (no Answer=NN). Not running pilot.")
+
 
 
 for begin in range(start_idx, end_total, BATCH_SIZE):
     end = min(begin + BATCH_SIZE, end_total)
-    current_prompts = prompts[begin:end]
+    current_prompts = prompts[begin - start_idx : end - start_idx]
 
     t0 = time.time()
     batch_out = run_parallel(system_prompt, current_prompts)
