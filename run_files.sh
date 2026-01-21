@@ -13,6 +13,7 @@ mkdir -p logs
 
 module purge
 module load bear-apps/2024a/live
+module load GCC/13.3.0
 module load R/4.5.0-gfbf-2024a
 
 cd ~/projects/Mapping_Behav_RL
