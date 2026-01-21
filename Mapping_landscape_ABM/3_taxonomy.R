@@ -7,11 +7,6 @@ use_python("~/apps/miniforge3/envs/mapping_abm/bin/python", required = TRUE)
 use_condaenv("mapping_abm", required=TRUE)
 print(py_config())
 
-cat("HF_HOME=", Sys.getenv("HF_HOME"), "\n")
-cat("HF_DATASETS_CACHE=", Sys.getenv("HF_DATASETS_CACHE"), "\n")
-cat("XDG_CACHE_HOME=", Sys.getenv("XDG_CACHE_HOME"), "\n")
-
-
 require(remotes)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
@@ -24,18 +19,48 @@ tags = read_csv("Mapping_landscape_ABM/Data/tagging/data_tags_v1.csv") %>%
 
 tags_tab = tags$tags |> unlist() |> table() |> sort(decreasing = T)
 
-# EMBED 
+
+# EMBED
 torch = import("torch")
 st = import("sentence_transformers")
 
-model = st$SentenceTransformer("Qwen/Qwen3-Embedding-4B", device = "cpu")
-
+model = st$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device = "cpu")
 prompts = paste0(names(tags_tab), " in behavioral reinforcement learning")
 
-tag_emb = model$encode(prompts)
-rownames(tag_emb) = names(tags_tab)
-saveRDS(tag_emb, "Mapping_landscape_ABM/Data/tagging/data_tags_embedding.RDS")
+tag_emb = model$encode(
+  prompts,
+  batch_size = 256L,
+  show_progress_bar = TRUE,
+  normalize_embeddings = TRUE
+)
 
+rownames(tag_emb) = names(tags_tab)
+out_scratch <- file.path(Sys.getenv("TMPDIR", "/tmp"), "data_tags_embedding.RDS")
+saveRDS(tag_emb, out_scratch)
+
+out_final <- "Mapping_landscape_ABM/Data/tagging/data_tags_embedding.RDS"
+dir.create(dirname(out_final), recursive = TRUE, showWarnings = FALSE)
+file.copy(out_scratch, out_final, overwrite = TRUE)
+cat("Saved embedding to:", out_final, "\n")
+
+
+
+
+
+
+##########################
+# # EMBED 
+# torch = import("torch")
+# st = import("sentence_transformers")
+
+# model = st$SentenceTransformer("Qwen/Qwen3-Embedding-4B", device = "cpu")
+
+# prompts = paste0(names(tags_tab), " in behavioral reinforcement learning")
+
+# tag_emb = model$encode(prompts)
+# rownames(tag_emb) = names(tags_tab)
+# saveRDS(tag_emb, "Mapping_landscape_ABM/Data/tagging/data_tags_embedding.RDS")
+##########################
 # tag_emb = readRDS("1_data/tagging/data_tags_embedding.RDS")
 
 # tag_cos = arma_cosine(tag_emb)
