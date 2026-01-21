@@ -7,6 +7,11 @@ use_python("~/apps/miniforge3/envs/mapping_abm/bin/python", required = TRUE)
 use_condaenv("mapping_abm", required=TRUE)
 print(py_config())
 
+cat("HF_HOME=", Sys.getenv("HF_HOME"), "\n")
+cat("HF_DATASETS_CACHE=", Sys.getenv("HF_DATASETS_CACHE"), "\n")
+cat("XDG_CACHE_HOME=", Sys.getenv("XDG_CACHE_HOME"), "\n")
+
+
 require(remotes)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 

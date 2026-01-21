@@ -21,18 +21,17 @@ cd ~/projects/Mapping_Behav_RL
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 
-export HF_HOME=/rds/homes/v/vaw508/projects/Mapping_Behav_RL/hf_cache
-export HF_HUB_CACHE=$HF_HOME/hub
-export HF_DATASETS_CACHE=$HF_HOME/datasets
-export TORCH_HOME=$HF_HOME/torch
-export XDG_CACHE_HOME=$HF_HOME/xdg
+BB_WORKDIR=$(mktemp -d /scratch/${USER}_${SLURM_JOBID}.XXXXXX)
+export TMPDIR=${BB_WORKDIR}
 
-mkdir -p "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$TORCH_HOME" "$XDG_CACHE_HOME"
+export HF_HOME=${BB_WORKDIR}/hf
+export HF_DATASETS_CACHE=${HF_HOME}/datasets
+export TORCH_HOME=${HF_HOME}/torch
+export XDG_CACHE_HOME=${HF_HOME}/xdg
+mkdir -p "$HF_HOME" "$HF_DATASETS_CACHE" "$TORCH_HOME" "$XDG_CACHE_HOME"
 
 unset TRANSFORMERS_CACHE
-
-export TMPDIR=/rds/homes/v/vaw508/projects/Mapping_Behav_RL/tmp
-mkdir -p "$TMPDIR"
+unset HF_HUB_CACHE
 
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 export LD_PRELOAD="$CONDA_PREFIX/lib/libcrypto.so.3:$CONDA_PREFIX/lib/libssl.so.3"
@@ -45,3 +44,5 @@ export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 
 Rscript Mapping_landscape_ABM/3_taxonomy.R
+
+rm -rf "${BB_WORKDIR}"
