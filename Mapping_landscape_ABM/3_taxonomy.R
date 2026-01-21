@@ -27,9 +27,11 @@ model <- st$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device
 
 prompts <- paste0(names(tags_tab), " in behavioral reinforcement learning")
 
-chunk_size <- 500
+chunk_size <- as.integer(500)
 n <- length(prompts)
-chunks <- split(seq_len(n), ceiling(seq_len(n) / chunk_size))
+
+chunk_id <- ((seq_len(n) - 1) %/% chunk_size) + 1
+chunks <- split(seq_len(n), chunk_id)
 
 emb_list <- vector("list", length(chunks))
 
@@ -37,7 +39,7 @@ for (i in seq_along(chunks)) {
   cat(sprintf("Embedding chunk %d / %d\n", i, length(chunks)))
   emb_list[[i]] <- model$encode(
     prompts[chunks[[i]]],
-    batch_size = 32,
+    batch_size = as.integer(32),
     show_progress_bar = TRUE
   )
 }
