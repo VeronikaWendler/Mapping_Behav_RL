@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=2.1_semantic_ratings                      # should be changed to whatever you are running, otherwise confusion 
+#SBATCH --job-name=3_taxonomy.R
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=128G
@@ -15,11 +15,14 @@ module purge
 module load bear-apps/2024a/live
 module load R/4.5.0-gfbf-2024a
 
+cd ~/projects/Mapping_Behav_RL
+
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
-export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"                # to prefer conda's module
-unset LD_PRELOAD
 
+# make conda libs preferred, then force conda OpenSSL into the process
+export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+export LD_PRELOAD="$CONDA_PREFIX/lib/libcrypto.so.3:$CONDA_PREFIX/lib/libssl.so.3"
 
 export HF_HOME=$HOME/.cache/huggingface
 export HF_HUB_OFFLINE=1
@@ -28,21 +31,6 @@ export MPLCONFIGDIR=${SLURM_TMPDIR:-/tmp}/mplcache
 export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 
-cd ~/projects/Mapping_Behav_RL
-
-# This  is for a test ...
-
-echo "CONDA_PREFIX=$CONDA_PREFIX"
-echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
-echo "which python3: $(which python3)"
-python3 -c "import ssl,sys; print('py:',sys.executable); print('openssl:',ssl.OPENSSL_VERSION)"
-
-echo "---- ldd _ssl ----"
-ldd "$CONDA_PREFIX/lib/python3.10/lib-dynload/_ssl.cpython-310-x86_64-linux-gnu.so" | egrep "crypto|ssl|not found" || true
-
-# End of test 
-
-
-Rscript Mapping_landscape_ABM/3_taxonomy.R        # change to Rscript or python 
+Rscript Mapping_landscape_ABM/3_taxonomy.R
 
 

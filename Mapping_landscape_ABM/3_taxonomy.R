@@ -23,7 +23,7 @@ tags_tab = tags$tags |> unlist() |> table() |> sort(decreasing = T)
 torch = import("torch")
 st = import("sentence_transformers")
 
-model = st$SentenceTransformer("Qwen/Qwen3-Embedding-4B", device = "mps")
+model = st$SentenceTransformer("Qwen/Qwen3-Embedding-4B", device = "cpu")
 
 prompts = paste0(names(tags_tab), " in behavioral reinforcement learning")
 
