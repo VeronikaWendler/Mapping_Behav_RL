@@ -21,25 +21,22 @@ cd ~/projects/Mapping_Behav_RL
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 
-# HuggingFace cache
 export HF_HOME=/rds/homes/v/vaw508/projects/Mapping_Behav_RL/hf_cache
+export HF_HUB_CACHE=$HF_HOME/hub
 export HF_DATASETS_CACHE=$HF_HOME/datasets
 export TORCH_HOME=$HF_HOME/torch
+export XDG_CACHE_HOME=$HF_HOME/xdg
 
-mkdir -p "$HF_HOME" "$HF_DATASETS_CACHE" "$TORCH_HOME"
+mkdir -p "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$TORCH_HOME" "$XDG_CACHE_HOME"
 
 unset TRANSFORMERS_CACHE
-unset HF_HUB_CACHE
 
-# temp files 
 export TMPDIR=/rds/homes/v/vaw508/projects/Mapping_Behav_RL/tmp
 mkdir -p "$TMPDIR"
 
-# OpenSSL
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 export LD_PRELOAD="$CONDA_PREFIX/lib/libcrypto.so.3:$CONDA_PREFIX/lib/libssl.so.3"
 
-# allow downloads
 export HF_HUB_OFFLINE=0
 export TRANSFORMERS_OFFLINE=0
 
