@@ -18,7 +18,7 @@ tags = read_csv("Mapping_landscape_ABM/Data/tagging/data_tags_v1.csv") %>%
 
 tags_tab = tags$tags |> unlist() |> table() |> sort(decreasing = T)
 
-# EMBED ---
+# EMBED 
 torch = import("torch")
 st = import("sentence_transformers")
 

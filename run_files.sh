@@ -17,6 +17,8 @@ module load R/4.5.0-gfbf-2024a
 
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
+export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"                # to prefer conda's module
+
 
 export HF_HOME=$HOME/.cache/huggingface
 export HF_HUB_OFFLINE=1
