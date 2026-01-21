@@ -3,6 +3,7 @@ require(reticulate)
 #use_condaenv("form")
 
 Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
+use_python("~/apps/miniforge3/envs/mapping_abm/bin/python", required = TRUE)
 use_condaenv("mapping_abm", required=TRUE)
 print(py_config())
 
