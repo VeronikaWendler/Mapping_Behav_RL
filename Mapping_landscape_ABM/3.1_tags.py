@@ -9,17 +9,15 @@ from functools import partial
 with open("Mapping_landscape_ABM/Data/semantic_training/api.txt", "r") as f:
     api = f.readlines()
 
-url = api[0].strip()          # IMPORTANT: strip newline
-auth = api[1].strip()         # IMPORTANT: strip newline
+url = api[0].strip()       
+auth = api[1].strip()      
 
 headers = {
     "Authorization": auth,
     "Content-Type": "application/json"
 }
 
-MODEL = "meta-llama/Llama-3.3-70B-Instruct"   # keep as you wrote (author-style)
-# If you get model_not_found, change to the one you *confirmed* works:
-# MODEL = "llama-3.3-70b-versatile"
+MODEL = "meta-llama/Llama-3.3-70B-Instruct"  
 
 def run(system, user, timeout=120, max_retries=6):
     payload = {
@@ -40,7 +38,6 @@ def run(system, user, timeout=120, max_retries=6):
                 j = r.json()
                 return j["choices"][0]["message"]["content"]
 
-            # transient errors / rate limit
             if r.status_code in (408, 429, 500, 502, 503, 504):
                 time.sleep(min(60, (2 ** attempt) + random.random()))
                 continue

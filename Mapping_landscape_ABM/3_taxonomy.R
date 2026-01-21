@@ -1,50 +1,56 @@
 require(tidyverse)
 require(reticulate)
-#use_condaenv("form")
 
 Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
 use_python("~/apps/miniforge3/envs/mapping_abm/bin/python", required = TRUE)
-use_condaenv("mapping_abm", required=TRUE)
+use_condaenv("mapping_abm", required = TRUE)
 print(py_config())
+
+cat("TMPDIR=", Sys.getenv("TMPDIR"), "\n")
+cat("HF_HOME=", Sys.getenv("HF_HOME"), "\n")
 
 require(remotes)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
-
 remotes::install_github("https://github.com/dwulff/memnet")
 
-tags = read_csv("Mapping_landscape_ABM/Data/tagging/data_tags_v1.csv") %>% 
-  select(-1) %>% 
-  mutate(tags = out |> str_extract("Answer=[:print:]+") |> str_remove("Answer=") |> str_remove_all("\\[|\\]") |> 
-           str_split(";") |> sapply(str_squish))
+tags <- read_csv("Mapping_landscape_ABM/Data/tagging/data_tags_v1.csv", show_col_types = FALSE) %>%
+  select(-1) %>%
+  mutate(tags = out |> str_extract("Answer=[:print:]+") |> str_remove("Answer=") |>
+           str_remove_all("\\[|\\]") |> str_split(";") |> sapply(str_squish))
 
-tags_tab = tags$tags |> unlist() |> table() |> sort(decreasing = T)
+tags_tab <- tags$tags |> unlist() |> table() |> sort(decreasing = TRUE)
 
+torch <- import("torch")
+st <- import("sentence_transformers")
 
-# EMBED
-torch = import("torch")
-st = import("sentence_transformers")
+model <- st$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device = "cpu")
 
-model = st$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device = "cpu")
-prompts = paste0(names(tags_tab), " in behavioral reinforcement learning")
+prompts <- paste0(names(tags_tab), " in behavioral reinforcement learning")
 
-tag_emb = model$encode(
-  prompts,
-  batch_size = 256L,
-  show_progress_bar = TRUE,
-  normalize_embeddings = TRUE
-)
+chunk_size <- 500
+n <- length(prompts)
+chunks <- split(seq_len(n), ceiling(seq_len(n) / chunk_size))
 
-rownames(tag_emb) = names(tags_tab)
-out_scratch <- file.path(Sys.getenv("TMPDIR", "/tmp"), "data_tags_embedding.RDS")
-saveRDS(tag_emb, out_scratch)
+emb_list <- vector("list", length(chunks))
 
-out_final <- "Mapping_landscape_ABM/Data/tagging/data_tags_embedding.RDS"
-dir.create(dirname(out_final), recursive = TRUE, showWarnings = FALSE)
-file.copy(out_scratch, out_final, overwrite = TRUE)
-cat("Saved embedding to:", out_final, "\n")
+for (i in seq_along(chunks)) {
+  cat(sprintf("Embedding chunk %d / %d\n", i, length(chunks)))
+  emb_list[[i]] <- model$encode(
+    prompts[chunks[[i]]],
+    batch_size = 32,
+    show_progress_bar = TRUE
+  )
+}
 
+tag_emb <- do.call(rbind, emb_list)
+rownames(tag_emb) <- names(tags_tab)
 
-
+scratch_out <- file.path(Sys.getenv("TMPDIR"), "data_tags_embedding.RDS")
+saveRDS(tag_emb, scratch_out)
+final_out <- "Mapping_landscape_ABM/Data/tagging/data_tags_embedding.RDS"
+ok <- file.copy(scratch_out, final_out, overwrite = TRUE)
+if (!ok) stop("file.copy() failed: could not copy embeddings back to /rds")
+cat("Saved embeddings to:", final_out, "\n")
 
 
 

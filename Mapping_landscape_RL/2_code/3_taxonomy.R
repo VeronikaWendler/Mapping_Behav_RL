@@ -15,17 +15,6 @@ tags_tab = tags$tags |> unlist() |> table() |> sort(decreasing = T)
 
 # EMBED ---
 
-# torch = import("torch")
-# st = import("sentence_transformers")
-# 
-# model = st$SentenceTransformer("Qwen/Qwen3-Embedding-4B", device = "mps")
-# 
-# prompts = paste0(names(tags_tab), " in behavioral reinforcement learning")
-# 
-# tag_emb = model$encode(prompts)
-# rownames(tag_emb) = names(tags_tab)
-# saveRDS(tag_emb, "1_data/tagging/data_tags_embedding.RDS")
-
 tag_emb = readRDS("1_data/tagging/data_tags_embedding.RDS")
 
 tag_cos = arma_cosine(tag_emb)
@@ -47,6 +36,21 @@ names(tag_clustering) = rownames(tag_emb)
 
 tag_cliques = split(names(tag_clustering), tag_clustering)
 #clique_minimum = sapply(tag_cliques, function(x) tag_cos[x, x] |> min())
+
+
+
+
+# old 
+# torch = import("torch")
+# st = import("sentence_transformers")
+# 
+# model = st$SentenceTransformer("Qwen/Qwen3-Embedding-4B", device = "mps")
+# 
+# prompts = paste0(names(tags_tab), " in behavioral reinforcement learning")
+# 
+# tag_emb = model$encode(prompts)
+# rownames(tag_emb) = names(tags_tab)
+# saveRDS(tag_emb, "1_data/tagging/data_tags_embedding.RDS")
 
 # COMBINE ---
 
