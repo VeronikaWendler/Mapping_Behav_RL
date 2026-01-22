@@ -27,27 +27,32 @@ export TMPDIR=${BB_WORKDIR}
 export HF_HOME=${BB_WORKDIR}/hf
 export HF_DATASETS_CACHE=${HF_HOME}/datasets
 export TORCH_HOME=${HF_HOME}/torch
-export XDG_CACHE_HOME=${HF_HOME}/xdg
-mkdir -p "$HF_HOME" "$HF_DATASETS_CACHE" "$TORCH_HOME" "$XDG_CACHE_HOME"
+export XDG_CACHE_HOME=${BB_WORKDIR}/xdg
+export MPLCONFIGDIR=${BB_WORKDIR}/mplcache
+
+export PIP_CACHE_DIR=${BB_WORKDIR}/pip
+export CONDA_PKGS_DIRS=${BB_WORKDIR}/conda_pkgs
+export NUMBA_CACHE_DIR=${BB_WORKDIR}/numba
+export JOBLIB_TEMP_FOLDER=${BB_WORKDIR}/joblib
+
+mkdir -p "$HF_HOME" "$HF_DATASETS_CACHE" "$TORCH_HOME" "$XDG_CACHE_HOME" \
+         "$PIP_CACHE_DIR" "$CONDA_PKGS_DIRS" "$NUMBA_CACHE_DIR" "$JOBLIB_TEMP_FOLDER" \
+         "$MPLCONFIGDIR"
 
 unset TRANSFORMERS_CACHE
 unset HF_HUB_CACHE
-
-export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
-export LD_PRELOAD="$CONDA_PREFIX/lib/libcrypto.so.3:$CONDA_PREFIX/lib/libssl.so.3"
-
-export HF_HUB_OFFLINE=0
-export TRANSFORMERS_OFFLINE=0
-
-export MPLCONFIGDIR=${TMPDIR}/mplcache
-export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
+export PYTHONUNBUFFERED=1
 
-python Mapping_landscape_ABM/0_read.py
+export OUTDIR=${BB_WORKDIR}/outputs
+mkdir -p "$OUTDIR"
+
+Rscript Mapping_landscape_ABM/1_clean_abstracts.R
+
+# results back to RDS
+cp -v "${OUTDIR}"/*  ~/projects/Mapping_Behav_RL/Mapping_landscape_ABM/Data/ || true
 
 rm -rf "${BB_WORKDIR}"
-
-
 
 
 
