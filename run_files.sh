@@ -36,7 +36,7 @@ unset HF_HUB_CACHE
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 export LD_PRELOAD="$CONDA_PREFIX/lib/libcrypto.so.3:$CONDA_PREFIX/lib/libssl.so.3"
 
-export HF_HUB_OFFLINE=1
+export HF_HUB_OFFLINE=0
 export TRANSFORMERS_OFFLINE=1
 
 export MPLCONFIGDIR=${TMPDIR}/mplcache
