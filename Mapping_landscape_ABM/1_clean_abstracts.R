@@ -1,6 +1,6 @@
 require(tidyverse)
 
-data = read_csv("Mapping_landscape_ABM/Data/data_selected_labels_2.csv")
+data = read_csv("Mapping_landscape_ABM/Data/data.csv")
 
 # in one abstract, a greater-than-equal sign is misrepresented by a copyright sign, fix this manually:
 data <- data %>%
@@ -89,4 +89,4 @@ data <- data %>%
   mutate(Abstract_cleaned = str_remove_all(Abstract_cleaned, pattern=regex_organizers))
 
 
-write_csv(data, "Mapping_landscape_ABM/Data/data_selected_labels_3.csv")
+write_csv(data, "Mapping_landscape_ABM/Data/data_cleaned_3_tryout.csv")
