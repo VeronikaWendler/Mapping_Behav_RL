@@ -1,6 +1,6 @@
 require(tidyverse)
 
-data = read_csv("Mapping_landscape_ABM/Data/data.csv")
+data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_3.csv")
 
 # in one abstract, a greater-than-equal sign is misrepresented by a copyright sign, fix this manually:
 data <- data %>%
