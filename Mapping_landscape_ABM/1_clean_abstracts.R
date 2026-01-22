@@ -28,8 +28,14 @@ data <- data %>%
 
 
 # plot histogram of abstract length
-data %>% mutate(abstract_nchar = nchar(Abstract_cleaned)) %>% pull(abstract_nchar) %>% hist()
+#data %>% mutate(abstract_nchar = nchar(Abstract_cleaned)) %>% pull(abstract_nchar) %>% hist()
 
+pdf("Mapping_landscape_ABM/Outputs/hist_abstract_length.pdf", width = 8, height = 5)
+data %>%
+  mutate(abstract_nchar = nchar(Abstract_cleaned)) %>%
+  pull(abstract_nchar) %>%
+  hist(main = "Abstract length in characters", xlab = "nchar")
+dev.off()
 
 
 # remove organizers
