@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import pandas as pd
 
-INPUT_CSV = Path(r"D:/Birmingham_Uni_Oct25/Papers/Mapping_Behav_RL/Vero_ABM/Data/scopus_export_Dec 29-2025_ABM.csv")
+INPUT_CSV = Path(r"Mapping_landscape_ABM/Data/scopus_export_Dec 29-2025_ABM.csv")
 OUTPUT_CSV = Path("Data/data.csv")
 
 REQUIRED_BASE = ["Title", "Abstract", "References", "Author(s) ID"]
