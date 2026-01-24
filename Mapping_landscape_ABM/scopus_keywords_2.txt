@@ -1,0 +1,72 @@
+TITLE-ABS-KEY(
+    "agent-based model*" OR
+    "agent based model*" OR
+    "agent-based simulation*" OR
+    "agent based simulation" OR
+    "multi-agent simulation*" OR
+    "multiagent simulation" OR
+    "social simulation" OR
+    "agent-based computational model*" OR
+    "agent based computational model*" OR
+    "social simulation" OR
+    "individual-based model*" OR
+    "agent-based" OR
+    "computational social science"
+)
+AND
+TITLE-ABS-KEY(
+    econom* OR market* OR finance OR trading OR consumer* OR firm* OR
+    organization* OR organisation* OR policy OR environment OR environmental OR
+    "pro-environmental" OR sustainab* OR sustainability OR decision* OR choice OR
+    preference* OR risk OR uncertainty OR experience OR learning OR
+    "reward learning" OR adaptation OR "bounded rationality" OR heurist* OR
+    belief* OR expectation* OR cooperation OR coordination OR competition OR
+    negotiation OR trust OR norm* OR compliance OR "social influence" OR
+    behaviour OR behavior OR "behaviour change" OR "behavior change" OR
+    inequality OR segregation OR polarization OR polarisation OR diffusion OR
+    contagion OR "social network*" OR "opinion dynamics" OR
+    "collective behavior" OR "collective behaviour" OR psychology OR psychological OR
+    cognitive OR cognition OR attention OR "visual attention" OR vision OR
+    perception OR "computational cognition" OR "computational neuroscience" OR
+    "computational modeling" OR neuroeconomics OR
+    "decisions from experience" OR
+    "behavioural reinforcement learning" OR
+    "behavioral reinforcement learning" OR
+    "social learning" OR "adaptive behaviour" OR "adaptive behavior" OR
+    "cultural evolution" OR "moral learning" OR "decision neuroscience" OR
+    neuroscience OR eye OR "eye tracking" OR "eye-tracking" OR eyetracking OR
+    "eye movement" OR gaze OR "process tracing" OR multimodal OR
+    "behavioral data" OR "behavioural data" OR neuroimaging OR EEG OR fMRI OR
+    MEG OR "system-level behaviour" OR "system-level behavior" OR
+    "system level behaviour" OR "system level behavior"
+)
+AND NOT
+TITLE-ABS-KEY(
+    robot* OR robotic* OR drone* OR swarm* OR insect* OR animal* OR
+    sensor network* OR power grid* OR manufacturing OR logistics
+)
+AND (
+    LIMIT-TO(SUBJAREA, "SOCI") OR
+    LIMIT-TO(SUBJAREA, "ENVI") OR
+    LIMIT-TO(SUBJAREA, "DECI") OR
+    LIMIT-TO(SUBJAREA, "BUSI") OR
+    LIMIT-TO(SUBJAREA, "AGRI") OR
+    LIMIT-TO(SUBJAREA, "MEDI") OR
+    LIMIT-TO(SUBJAREA, "ECON") OR
+    LIMIT-TO(SUBJAREA, "MULT") OR
+    LIMIT-TO(SUBJAREA, "ARTS") OR
+    LIMIT-TO(SUBJAREA, "PSYC") OR
+    LIMIT-TO(SUBJAREA, "NEUR") OR
+    LIMIT-TO(SUBJAREA, "HEAL")
+)
+AND LIMIT-TO(DOCTYPE, "ar")
+AND LIMIT-TO(LANGUAGE, "English")
+AND (
+    EXCLUDE(EXACTKEYWORD, "Animals") OR
+    EXCLUDE(EXACTKEYWORD, "Animal") OR
+    EXCLUDE(EXACTKEYWORD, "Nonhuman") OR
+    EXCLUDE(EXACTKEYWORD, "Animalia") OR
+    EXCLUDE(EXACTKEYWORD, "Animal Experiment") OR
+    EXCLUDE(EXACTKEYWORD, "Gis")
+)
+AND LIMIT-TO(SRCTYPE, "j")

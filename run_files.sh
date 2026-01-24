@@ -26,7 +26,7 @@ cd ~/projects/Mapping_Behav_RL
 
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
-python Mapping_landscape_ABM/0_read.py         # or python or Rscript
+python Mapping_landscape_ABM/1_clean_abstracts.py         # or python or Rscript
 
 
 

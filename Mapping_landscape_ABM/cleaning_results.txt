@@ -1,0 +1,12 @@
+1. After running 0_read.py:
+
+Number of entries: 9025
+Entries without abstract: 16
+Entries without references: 54
+Entries with incomplete author info: 2
+Duplicate entries (Title + Source): 23
+Wrote filtered dataset: Data/data.csv (n=8933)
+
+
+2. After running 1_clean_abstracts.R:
+

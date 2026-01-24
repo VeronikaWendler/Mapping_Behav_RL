@@ -37,6 +37,11 @@ data %>%
   hist(main = "Abstract length in characters", xlab = "nchar")
 dev.off()
 
+abstract_nchar <- data %>%
+  mutate(abstract_nchar = nchar(Abstract_cleaned)) %>%
+  pull(abstract_nchar)
+
+summary(abstract_nchar)
 
 # remove organizers
 
