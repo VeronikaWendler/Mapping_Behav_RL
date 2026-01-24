@@ -3,8 +3,13 @@ require(tidyverse)
 data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_3.csv")
 
 # in one abstract, a greater-than-equal sign is misrepresented by a copyright sign, fix this manually:
+before_manual <- data$Abstract_cleaned
 data <- data %>%
   mutate(Abstract_cleaned = str_replace(Abstract_cleaned, "31 patients aged ©60 years", "31 patients aged ⩾60 years"))
+after_manual <- data$Abstract_cleaned
+
+cat("\n==== Manual check ====\n")
+cat("Rows changed:", sum(before_manual != after_manual, na.rm = TRUE), "\n")
 
 
 # define copyright statements and similar with regular expressions
@@ -19,6 +24,20 @@ regex_au <- "(^AU)|(: Pleaseconfirmthatallheadinglevelsarerepresentedcorrectly)"
 # combine regex in vector
 regex_list <- c(regex_copyright_start, regex_psycinfo, regex_copyright, regex_sigstatement, regex_reshigh, regex_noteworthy, regex_au)
 
+# this here is for some checks:
+patterns <- regex_list
+names(patterns) <- c("copyright_start","psycinfo","copyright",
+                     "sigstatement","reshigh","noteworthy","au")
+
+match_counts <- map_dfc(patterns, ~ str_count(data$Abstract_cleaned, .x))
+colnames(match_counts) <- paste0("n_", names(patterns))
+
+cat("\n=== Regex hits BEFORE removal ===\n")
+print(sort(colSums(match_counts, na.rm = TRUE), decreasing = TRUE))
+cat("Rows with ANY match:", sum(rowSums(match_counts, na.rm = TRUE) > 0), "\n")
+
+before_regex <- data$Abstract_cleaned
+
 # extract regex from abstracts and write to file
 # str_extract_all(data$Abstract, pattern=paste(regex_list, collapse="|")) %>% unlist() %>% write_lines("extract.txt", sep="\n\n")
 
@@ -26,10 +45,16 @@ regex_list <- c(regex_copyright_start, regex_psycinfo, regex_copyright, regex_si
 data <- data %>%
   mutate(Abstract_cleaned = str_remove_all(Abstract_cleaned, pattern=paste(regex_list, collapse="|")))
 
+#
+after_regex <- data$Abstract_cleaned
+removed_chars_regex <- nchar(before_regex) - nchar(after_regex)
+cat("\n--- Regex removal (copyright/psycinfo/etc) ---\n")
+cat("Rows changed:", sum(before_regex != after_regex, na.rm = TRUE), "\n")
+cat("Total chars removed:", sum(removed_chars_regex, na.rm = TRUE), "\n")
+print(summary(removed_chars_regex))
 
 # plot histogram of abstract length
 #data %>% mutate(abstract_nchar = nchar(Abstract_cleaned)) %>% pull(abstract_nchar) %>% hist()
-
 pdf("Mapping_landscape_ABM/Outputs/hist_abstract_length.pdf", width = 8, height = 5)
 data %>%
   mutate(abstract_nchar = nchar(Abstract_cleaned)) %>%
@@ -37,11 +62,12 @@ data %>%
   hist(main = "Abstract length in characters", xlab = "nchar")
 dev.off()
 
-abstract_nchar <- data %>%
-  mutate(abstract_nchar = nchar(Abstract_cleaned)) %>%
-  pull(abstract_nchar)
-
-summary(abstract_nchar)
+abstract_nchar <- nchar(data$Abstract_cleaned)
+cat("\n=== Abstract length summary (AFTER regex removal) ====\n")
+print(summary(abstract_nchar))
+cat("Mean:", mean(abstract_nchar, na.rm=TRUE), "\n")
+cat("Median:", median(abstract_nchar, na.rm=TRUE), "\n")
+cat("SD:", sd(abstract_nchar, na.rm=TRUE), "\n")
 
 # remove organizers
 
@@ -84,6 +110,37 @@ context <- "(/[:graph:]+)?[:punct:]?[:blank:]*(?-i)(?=([:upper:]|[:digit:]))" # 
 
 # bring organizers and context together
 regex_organizers <- paste0(organizers, context, collapse="|")
+
+
+# check again 
+org_hits <- str_count(data$Abstract_cleaned, regex_organizers)
+cat("\n==== Organizer hits BEFORE removal ====\n")
+cat("Rows with >=1 organizer:", sum(org_hits > 0, na.rm=TRUE), "\n")
+print(summary(org_hits))
+cat("\nTop organizers:\n")
+print(sort(table(unlist(str_extract_all(data$Abstract_cleaned, regex_organizers))),
+           decreasing = TRUE))
+
+####
+before_org <- data$Abstract_cleaned
+data <- data %>%
+  mutate(Abstract_cleaned = str_remove_all(Abstract_cleaned, pattern = regex_organizers))
+
+after_org <- data$Abstract_cleaned
+removed_chars_org <- nchar(before_org) - nchar(after_org)
+cat("\n=== Organizer removal ===\n")
+cat("Rows changed:", sum(before_org != after_org, na.rm=TRUE), "\n")
+cat("Total chars removed:", sum(removed_chars_org, na.rm=TRUE), "\n")
+print(summary(removed_chars_org))
+
+####
+cat("\n=== Sanity checks ==\n")
+cat("Empty abstracts after cleaning:",
+    sum(is.na(data$Abstract_cleaned) | str_trim(data$Abstract_cleaned) == ""), "\n")
+cat("Still contains © :",
+    sum(str_detect(data$Abstract_cleaned, "©"), na.rm=TRUE), "\n")
+cat("Still has 'UppercaseWord:' pattern:",
+    sum(str_detect(data$Abstract_cleaned, "[:upper:]\\w+:"), na.rm=TRUE), "\n")
 
 
 # show organizers
