@@ -510,7 +510,66 @@ Sample body text. Sample body text. Sample body text. Sample body text. Sample b
 
 \section{Methods}\label{sec11}
 
-Topical subheadings are allowed. Authors must ensure that their Methods section includes adequate experimental and characterization data necessary for others in the field to reproduce their work. Authors are encouraged to include RIIDs where appropriate. 
+1. We used Scopus to retrieve 9023 articles in the field of behavioural agent-based modeling by using the below keyword search: 
+
+\vspace{1em}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  breaklines=true,
+  keepspaces=true,
+  frame=single
+}
+
+\noindent\textbf{Scopus search query.}
+\begin{lstlisting}
+TITLE-ABS-KEY(
+  "agent-based model*" OR
+  "agent based model*" OR
+  "agent-based simulation" OR
+  "agent based simulation" OR
+  "multi-agent simulation" OR
+  "multiagent simulation" OR
+  "social simulation" OR
+  "agent-based computational model*" OR
+  "individual-based model*" OR
+  "agent-based" OR
+  "computational social science"
+)
+AND
+TITLE-ABS-KEY(
+  econom* OR market* OR finance OR trading OR consumer* OR firm* OR organization* OR environment OR environmental OR "pro-environmental" OR sustainab* OR sustainability OR decision* OR choice OR preference* OR risk OR uncertainty OR experience OR
+  learning OR adaptation OR "bounded rationality" OR heurist* OR belief* OR expectation* OR
+  cooperation OR coordination OR competition OR negotiation OR trust OR norm* OR compliance OR
+  "social influence" OR inequality OR segregation OR polarization OR diffusion OR contagion OR
+  "social network*" OR "opinion dynamics" OR "collective behavior" OR psychology OR psychological OR cognitive OR cognition OR attention OR "visual attention" OR vision OR perception OR "computational cognition" OR "computational neuroscience" OR neuroeconomics OR "decision neuroscience" OR "eye tracking" OR eyetracking OR multimodal OR "behavioral data" OR
+  neuroimaging OR EEG OR fMRI
+)
+AND NOT
+TITLE-ABS-KEY(
+  robot* OR robotic* OR drone* OR
+  swarm* OR insect* OR animal* OR
+  sensor network* OR power grid* OR manufacturing OR logistics
+)
+\end{lstlisting}
+
+
+The search was limited to English-language publications within the social sciences, including economics, marketing, finance, decision sciences, environmental sciences, computer science, and psychology. Consistent with Thoma et al. (2025), we included only empirical research articles, review papers, conference proceedings (due to their preliminary use in computer science), and excluded book chapters.
+
+\vspace{1em}
+
+2. We then conducted a data-cleaning procedure, removing duplicate records and entries with missing values in the articles "Title", "Abstract", "References", and "Author(s) ID". This process resulted in a cleaned data frame containing 8933 articles after filtering out 16 entries without an abstract, 54 entries without references, 23 duplicate entries, and 2 entries with incomplete author information.
+
+\vspace{1em}
+
+3. We further cleaned the abstract texts by removing publisher boilerplates, copyright statements, database artefacts, and auxiliary sections (e.g., Significance Statement, Research Highlights, or publication year within the body of the abstract). In addition, we stripped structured-abstract organizers (e.g., Background, Methods, Results, Conclusions) while preserving the substantive content. We also inspected the length distributions of the abstracts to verify the cleaning procedure, which resulted in a mean of 1354 characters (+/- 468 SD).
+
+\vspace{1em}
+
+4. This here is the detailed explanation of using a logistic ridge regression model to identify out of scope papers (given a smaller, manually labeled trainings set).
+
+\vspace{1em}
 
 \textbf{Ethical approval declarations} (only required where applicable) Any article reporting experiment/s carried out on (i)~live vertebrate (or higher invertebrates), (ii)~humans or (iii)~human samples must include an unambiguous statement within the methods section that meets the following requirements: 
 
