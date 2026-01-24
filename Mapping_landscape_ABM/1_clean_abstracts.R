@@ -1,12 +1,12 @@
 require(tidyverse)
 
-data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_3.csv")
+data = read_csv("Mapping_landscape_ABM/Data/data.csv")
 
 # in one abstract, a greater-than-equal sign is misrepresented by a copyright sign, fix this manually:
-before_manual <- data$Abstract_cleaned
+before_manual <- data$Abstract
 data <- data %>%
-  mutate(Abstract_cleaned = str_replace(Abstract_cleaned, "31 patients aged ©60 years", "31 patients aged ⩾60 years"))
-after_manual <- data$Abstract_cleaned
+  mutate(Abstract_cle = str_replace(Abstract, "31 patients aged ©60 years", "31 patients aged ⩾60 years"))
+after_manual <- data$Abstract
 
 cat("\n==== Manual check ====\n")
 cat("Rows changed:", sum(before_manual != after_manual, na.rm = TRUE), "\n")
@@ -29,21 +29,21 @@ patterns <- regex_list
 names(patterns) <- c("copyright_start","psycinfo","copyright",
                      "sigstatement","reshigh","noteworthy","au")
 
-match_counts <- map_dfc(patterns, ~ str_count(data$Abstract_cleaned, .x))
+match_counts <- map_dfc(patterns, ~ str_count(data$Abstract, .x))
 colnames(match_counts) <- paste0("n_", names(patterns))
 
 cat("\n=== Regex hits BEFORE removal ===\n")
 print(sort(colSums(match_counts, na.rm = TRUE), decreasing = TRUE))
 cat("Rows with ANY match:", sum(rowSums(match_counts, na.rm = TRUE) > 0), "\n")
 
-before_regex <- data$Abstract_cleaned
+before_regex <- data$Abstract
 
 # extract regex from abstracts and write to file
 # str_extract_all(data$Abstract, pattern=paste(regex_list, collapse="|")) %>% unlist() %>% write_lines("extract.txt", sep="\n\n")
 
 # clean abstracts by removing regex matches
 data <- data %>%
-  mutate(Abstract_cleaned = str_remove_all(Abstract_cleaned, pattern=paste(regex_list, collapse="|")))
+  mutate(Abstract_cleaned = str_remove_all(Abstract, pattern=paste(regex_list, collapse="|")))
 
 #
 after_regex <- data$Abstract_cleaned
