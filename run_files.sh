@@ -13,8 +13,6 @@ mkdir -p logs
 
 module purge
 module load bear-apps/2024a/live
-export LD_PRELOAD="$CONDA_PREFIX/lib/libcrypto.so.3:$CONDA_PREFIX/lib/libssl.so.3"
-
 module load R/4.5.0-gfbf-2024a
 
 export HF_HOME=$HOME/.cache/huggingface
