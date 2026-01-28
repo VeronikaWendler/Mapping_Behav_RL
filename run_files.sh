@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=1_clean_abstracts                     # should be changed to whatever you are running, otherwise confusion 
+#SBATCH --job-name=1_filter                     # should be changed to whatever you are running, otherwise confusion 
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=128G
