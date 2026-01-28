@@ -2,7 +2,7 @@ require(tidyverse)
 require(Matrix)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
-data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_4_200.csv")
+data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_4_300.csv")
 
 author_split = str_split(data$`Author(s) ID` %>% 
                            str_remove_all("[:blank:]"), ";")
@@ -40,6 +40,6 @@ set.seed(100)
 i = sample(1:nrow(data), 1)
 sort(author_cos[i,], decreasing = TRUE)[1:10]
 
-out_path <- "Mapping_landscape_ABM/Data/embs/author_emb.RDS"
+out_path <- "Mapping_landscape_ABM/Data/embs_300/author_emb.RDS"
 dir.create(dirname(out_path), recursive = TRUE, showWarnings = FALSE)
 saveRDS(author_emb, out_path)
