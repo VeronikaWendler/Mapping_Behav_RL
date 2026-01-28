@@ -3,8 +3,8 @@ library(tidyverse)
 library(reticulate)
 library(glmnet)
 
-reticulate::use_condaenv("mapping_abm", required = TRUE)
-print(reticulate::py_config())
+use_python(Sys.which("python"), required = TRUE)
+
 
 run_id <- format(Sys.time(), "%Y%m%d_%H%M%S")
 out_dir <- file.path("Mapping_landscape_ABM", "Outputs", paste0("filter_run_", run_id))
