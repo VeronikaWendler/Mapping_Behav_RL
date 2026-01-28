@@ -24,6 +24,8 @@ export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 
 # this is my project folder with code
+source ~/apps/miniforge3/etc/profile.d/conda.sh
+conda activate mapping_abm
 cd ~/projects/Mapping_Behav_RL
 
 source ~/apps/miniforge3/etc/profile.d/conda.sh
