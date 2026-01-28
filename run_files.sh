@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=1_filter                     # should be changed to whatever you are running, otherwise confusion 
+#SBATCH --job-name=2_semantic_net                    # should be changed to whatever you are running, otherwise confusion 
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=128G
@@ -23,10 +23,10 @@ export MPLCONFIGDIR=${SLURM_TMPDIR:-/tmp}/mplcache
 export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 
+# this is my project folder with code
 cd ~/projects/Mapping_Behav_RL
 
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
-Rscript Mapping_landscape_ABM/2_references_net.R         # or python or Rscript
-
+Rscript Mapping_landscape_ABM/2_semantic_net.R         # or python or Rscript
 

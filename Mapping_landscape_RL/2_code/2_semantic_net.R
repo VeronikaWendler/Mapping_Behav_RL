@@ -52,7 +52,9 @@ train_pairs = train_pairs |>
 
 write_csv(train_pairs, "1_data/semantic_training/train_pairs.csv")
 
-# # PROCESS RATINGS -----
+
+
+# # PROCESS RATINGS ---------------------------------------------------------------------------------------------------------------------
 
 # train_pairs_ratings = read_csv("1_data/semantic_training/train_pairs_ratings.csv") |> 
 #   mutate(rating = out |> str_extract("Answer=[:digit:]+[:punct:]*$") |> str_remove("Answer=") |> str_remove_all("[:punct:]") |> as.numeric(),
