@@ -13,7 +13,6 @@ mkdir -p logs
 
 module purge
 module load bear-apps/2024a/live
-module load R/4.5.0-gfbf-2024a
 
 export HF_HOME=$HOME/.cache/huggingface
 export HF_HUB_OFFLINE=1
@@ -28,7 +27,5 @@ source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 cd ~/projects/Mapping_Behav_RL
 
-source ~/apps/miniforge3/etc/profile.d/conda.sh
-conda activate mapping_abm
 Rscript Mapping_landscape_ABM/2_semantic_net.R         # or python or Rscript
 
