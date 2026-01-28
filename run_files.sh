@@ -18,6 +18,7 @@ module load R/4.5.0-gfbf-2024a
 export HF_HOME=$HOME/.cache/huggingface
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
+
 export MPLCONFIGDIR=${SLURM_TMPDIR:-/tmp}/mplcache
 export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
@@ -27,35 +28,5 @@ cd ~/projects/Mapping_Behav_RL
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 Rscript Mapping_landscape_ABM/1_filter.R         # or python or Rscript
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
