@@ -15,6 +15,8 @@ module purge
 module load bear-apps/2024a/live
 module load R/4.5.0-gfbf-2024a
 
+conda activate mapping_abm
+
 export HF_HOME=$HOME/.cache/huggingface
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
