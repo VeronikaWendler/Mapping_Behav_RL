@@ -5,7 +5,9 @@ import requests
 import concurrent.futures
 import pandas as pd
 from functools import partial
-
+import sys
+import json
+import warnings
 
 # ----------------------------
 # read hidden api
@@ -15,7 +17,7 @@ with open("Mapping_landscape_ABM/Data/semantic_training/api.txt", "r") as f:
 
 headers = {"Authorization": auth, "Content-Type": "application/json"}
 
-MODEL = "meta-llama/llama-3.3-70b-instruct"
+MODEL = "meta-llama/Llama-3.3-70B-Instruct" 
 
 def run(system, user, timeout=120, max_retries=6):
     """One request with retry/backoff. Returns model text or an ERROR string."""
@@ -42,6 +44,21 @@ def run(system, user, timeout=120, max_retries=6):
                 time.sleep(sleep_s)
                 continue
 
+            if r.status_code == 400:
+                # try to parse OpenAI-style error payload
+                try:
+                    j = r.json()
+                    code = j.get("error", {}).get("code")
+                    msg = j.get("error", {}).get("message", "")
+                except Exception:
+                    code, msg = None, ""
+
+                if code == "model_not_found" or "does not exist" in r.text.lower():
+                    raise SystemExit(
+                        f"[FATAL] Model '{MODEL}' not found (server says model_not_found). "
+                        f"Fix MODEL or endpoint.\nBody={r.text[:500]}"
+                    )
+
             # Other errors: keep the body for debugging
             return f"ERROR status={r.status_code} body={r.text[:300]}"
 
@@ -58,6 +75,49 @@ def run_parallel_map(system_prompt, users, workers=5):
     func = partial(run, system_prompt)
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
         return list(ex.map(func, users))
+
+# check
+
+def verify_model_or_die(timeout=30):
+    payload = {
+        "model": MODEL,
+        "messages": [{"role": "user", "content": "Reply with: OK"}],
+        "max_tokens": 5,
+        "temperature": 0,
+    }
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    except Exception as e:
+        raise SystemExit(f"[FATAL] Cannot reach API endpoint: {type(e).__name__}: {e}")
+
+    if r.status_code == 200:
+        print(f"[OK] Model '{MODEL}' is available.")
+        return
+
+    # Try to parse structured error
+    err_text = r.text[:500]
+    try:
+        j = r.json()
+        code = j.get("error", {}).get("code")
+        msg = j.get("error", {}).get("message", "")
+    except Exception:
+        code, msg = None, ""
+
+    if code == "model_not_found" or "does not exist" in err_text.lower():
+        raise SystemExit(
+            f"[FATAL] Model '{MODEL}' not found/available on this endpoint.\n"
+            f"Status={r.status_code}\n"
+            f"Message={msg or err_text}"
+        )
+
+    raise SystemExit(
+        f"[FATAL] API request failed during model check.\n"
+        f"Status={r.status_code}\n"
+        f"Body={err_text}"
+    )
+
+verify_model_or_die()
+
 
 # ----------------------------
 # Paths
