@@ -27,5 +27,5 @@ source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 cd ~/projects/Mapping_Behav_RL
 
-python Mapping_landscape_ABM/2.1_semantic_ratings.py         # or python or Rscript ##
+Rscript Mapping_landscape_ABM/2_semantic_net.R         # or python or Rscript ##
 
