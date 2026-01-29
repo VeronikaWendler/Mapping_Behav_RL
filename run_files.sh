@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=2_semantic_net                    # should be changed to whatever you are running, otherwise confusion 
+#SBATCH --job-name=2_sbert_training                    # should be changed to whatever you are running, otherwise confusion 
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=128G
@@ -27,5 +27,5 @@ source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 cd ~/projects/Mapping_Behav_RL
 
-Rscript Mapping_landscape_ABM/2_semantic_net.R        # or python or Rscript ##
+python Mapping_landscape_ABM/2.2_sbert_training.py        # or python or Rscript ##
 

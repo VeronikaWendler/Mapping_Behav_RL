@@ -105,6 +105,6 @@ context = "An article on behavioral reinforcement learning:\n\n"
 sem_emb = model$encode(paste0(context, data$text))
 rownames(sem_emb) = data$id
 
-saveRDS(sem_emb, "Mapping_landscape_ABM/Data/embs/semantic_emb.RDS")
+saveRDS(sem_emb, "Mapping_landscape_ABM/Data/embs_300/semantic_emb.RDS")
 
 
