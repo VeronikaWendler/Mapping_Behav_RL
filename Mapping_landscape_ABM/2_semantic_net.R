@@ -74,37 +74,37 @@ embed = model$encode(data$text)
 
 ###------
 
-in_file  <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_ratings.csv"
-out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_rating_clean.csv"
-train_pairs_ratings <- read_csv(in_file, show_col_types = FALSE)
+# in_file  <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_ratings.csv"
+# out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_rating_clean.csv"
+# train_pairs_ratings <- read_csv(in_file, show_col_types = FALSE)
 
-index_like <- c("X1", "X", "...1", "Unnamed: 0", "unnamed: 0")
+# index_like <- c("X1", "X", "...1", "Unnamed: 0", "unnamed: 0")
 
-if (names(train_pairs_ratings)[1] %in% index_like) {
-  train_pairs_ratings <- train_pairs_ratings |> select(-1)
-}
+# if (names(train_pairs_ratings)[1] %in% index_like) {
+#   train_pairs_ratings <- train_pairs_ratings |> select(-1)
+# }
 
-train_pairs_ratings <- train_pairs_ratings |>
-  mutate(
-    rating = str_extract(out, "Answer=\\d+") |> str_remove("Answer=") |> as.numeric(),
-    rating_scaled = rating / 100
-  ) |>
-  filter(!is.na(rating_scaled))
+# train_pairs_ratings <- train_pairs_ratings |>
+#   mutate(
+#     rating = str_extract(out, "Answer=\\d+") |> str_remove("Answer=") |> as.numeric(),
+#     rating_scaled = rating / 100
+#   ) |>
+#   filter(!is.na(rating_scaled))
 
-write_csv(train_pairs_ratings, out_file)
+# write_csv(train_pairs_ratings, out_file)
 
 
 # # GENERATE NET -----
 
-# torch = import("torch")
-# sbert = import("sentence_transformers")
-# hub = import("huggingface_hub")
-# model = sbert$SentenceTransformer("dwulff/minilm-brl")
+torch = import("torch")
+sbert = import("sentence_transformers")
+hub = import("huggingface_hub")
+model = sbert$SentenceTransformer("dwulff/minilm-brl")
 
-# context = "An article on behavioral reinforcement learning:\n\n"
-# sem_emb = model$encode(paste0(context, data$text))
-# rownames(sem_emb) = data$id
+context = "An article on behavioral reinforcement learning:\n\n"
+sem_emb = model$encode(paste0(context, data$text))
+rownames(sem_emb) = data$id
 
-# saveRDS(sem_emb, "Mapping_landscape_ABM/Data/embs/semantic_emb.RDS")
+saveRDS(sem_emb, "Mapping_landscape_ABM/Data/embs/semantic_emb.RDS")
 
 
