@@ -62,16 +62,36 @@ embed = model$encode(data$text)
 
 # PROCESS RATINGS -----------------------------------------------------------------------------------------------
 
-train_pairs_ratings = read_csv("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_ratings.csv") |> 
+# train_pairs_ratings = read_csv("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_ratings.csv") |> 
+#   mutate(
+#     rating = out |> str_extract("Answer=[:digit:]+") |> str_remove("Answer=") |> as.numeric(),
+#     rating_scaled = rating / 100
+#   ) |> 
+#   filter(!is.na(rating_scaled)) |>          # drop ERROR rows / blanks
+#   select(-1)                                # keep if your CSV has an X1 index column; otherwise remove
+
+# write_csv(train_pairs_ratings, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_rating_clean.csv")
+
+###------
+
+in_file  <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_ratings.csv"
+out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_rating_clean.csv"
+train_pairs_ratings <- read_csv(in_file, show_col_types = FALSE)
+
+index_like <- c("X1", "X", "...1", "Unnamed: 0", "unnamed: 0")
+
+if (names(train_pairs_ratings)[1] %in% index_like) {
+  train_pairs_ratings <- train_pairs_ratings |> select(-1)
+}
+
+train_pairs_ratings <- train_pairs_ratings |>
   mutate(
-    rating = out |> str_extract("Answer=[:digit:]+") |> str_remove("Answer=") |> as.numeric(),
+    rating = str_extract(out, "Answer=\\d+") |> str_remove("Answer=") |> as.numeric(),
     rating_scaled = rating / 100
-  ) |> 
-  filter(!is.na(rating_scaled)) |>          # drop ERROR rows / blanks
-  select(-1)                                # keep if your CSV has an X1 index column; otherwise remove
+  ) |>
+  filter(!is.na(rating_scaled))
 
-write_csv(train_pairs_ratings, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_rating_clean.csv")
-
+write_csv(train_pairs_ratings, out_file)
 
 
 # # GENERATE NET -----
