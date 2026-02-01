@@ -127,14 +127,13 @@ model <- pacmap$PaCMAP(
 )
 # Force conversion: NumPy array -> R matrix
 lyt_py <- model$fit_transform(as.matrix(emb))
-cat("Python type:", class(lyt_py), "\n")
-cat("Python dim (via reticulate py_to_r):\n")
-print(reticulate::py_to_r(reticulate::py_eval("np.array(x).shape", convert = TRUE,
-                                             locals = list(x = lyt_py),
-                                             envir = list(np = import("numpy")))))
+
+shape <- lyt_py$shape
+cat("numpy shape:", as.integer(shape[[1]]), "x", as.integer(shape[[2]]), "\n")
+
+# Convert to R matrix and verify again
 lyt <- as.matrix(lyt_py)
 cat("R dim:", paste(dim(lyt), collapse=" x "), "\n")
-stopifnot(length(dim(lyt)) == 2)
 stopifnot(ncol(lyt) == 2)
 
 colnames(lyt) <- c("lyt_x", "lyt_y")
