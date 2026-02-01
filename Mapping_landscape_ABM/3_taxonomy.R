@@ -1,58 +1,92 @@
 require(tidyverse)
 require(reticulate)
 
-Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
-use_python("~/apps/miniforge3/envs/mapping_abm/bin/python", required = TRUE)
-use_condaenv("mapping_abm", required = TRUE)
-print(py_config())
+Sys.setenv(
+  HF_HOME = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/hf_cache",
+  TRANSFORMERS_CACHE = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/hf_cache",
+  HF_HUB_CACHE = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/hf_cache"
+)
+dir.create(Sys.getenv("HF_HOME"), recursive = TRUE, showWarnings = FALSE)
 
-cat("TMPDIR=", Sys.getenv("TMPDIR"), "\n")
 cat("HF_HOME=", Sys.getenv("HF_HOME"), "\n")
+
 
 require(remotes)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 remotes::install_github("https://github.com/dwulff/memnet")
 
-tags <- read_csv("Mapping_landscape_ABM/Data/tagging/data_tags_v1.csv", show_col_types = FALSE) %>%
-  select(-1) %>%
-  mutate(tags = out |> str_extract("Answer=[:print:]+") |> str_remove("Answer=") |>
-           str_remove_all("\\[|\\]") |> str_split(";") |> sapply(str_squish))
+tags <- read_csv(
+  "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/tagging/data_tags_v1.csv",
+  show_col_types = FALSE
+)
+index_like <- c("X1", "X", "...1", "Unnamed: 0", "unnamed: 0")
+if (names(tags)[1] %in% index_like) {
+  tags <- tags %>% select(-1)
+}
+tags <- tags %>%
+  mutate(tags = out |>
+           str_extract("Answer=[:print:]+") |>
+           str_remove("Answer=") |>
+           str_remove_all("\\[|\\]") |>
+           str_split(";") |>
+           sapply(str_squish))
 
 tags_tab <- tags$tags |> unlist() |> table() |> sort(decreasing = TRUE)
 
-torch <- import("torch")
-st <- import("sentence_transformers")
 
-model <- st$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device = "cpu")
+#------
+# old 
+torch = import("torch")
+st = import("sentence_transformers")
 
-prompts <- paste0(names(tags_tab), " in behavioral reinforcement learning")
+device <- if (torch$cuda$is_available()) "cuda" else "cpu"
+cat("Using device:", device, "\n")
+model <- st$SentenceTransformer("Qwen/Qwen3-Embedding-4B", device = device)
 
-chunk_size <- as.integer(500)
-n <- length(prompts)
+prompts = paste0(names(tags_tab), " in behavioral agent-based modelling")
 
-chunk_id <- ((seq_len(n) - 1) %/% chunk_size) + 1
-chunks <- split(seq_len(n), chunk_id)
+tag_emb <- model$encode(prompts, batch_size = as.integer(16), show_progress_bar = TRUE)
+rownames(tag_emb) = names(tags_tab)
+saveRDS(tag_emb, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_tags_embedding.RDS")
+#------
 
-emb_list <- vector("list", length(chunks))
 
-for (i in seq_along(chunks)) {
-  cat(sprintf("Embedding chunk %d / %d\n", i, length(chunks)))
-  emb_list[[i]] <- model$encode(
-    prompts[chunks[[i]]],
-    batch_size = as.integer(32),
-    show_progress_bar = TRUE
-  )
-}
 
-tag_emb <- do.call(rbind, emb_list)
-rownames(tag_emb) <- names(tags_tab)
 
-scratch_out <- file.path(Sys.getenv("TMPDIR"), "data_tags_embedding.RDS")
-saveRDS(tag_emb, scratch_out)
-final_out <- "Mapping_landscape_ABM/Data/tagging/data_tags_embedding.RDS"
-ok <- file.copy(scratch_out, final_out, overwrite = TRUE)
-if (!ok) stop("file.copy() failed: could not copy embeddings back to /rds")
-cat("Saved embeddings to:", final_out, "\n")
+# #---------
+# torch <- import("torch")
+# st <- import("sentence_transformers")
+
+# model <- st$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device = "cpu")
+
+# prompts <- paste0(names(tags_tab), " in behavioral agent-based modelling")
+
+# chunk_size <- as.integer(500)
+# n <- length(prompts)
+
+# chunk_id <- ((seq_len(n) - 1) %/% chunk_size) + 1
+# chunks <- split(seq_len(n), chunk_id)
+
+# emb_list <- vector("list", length(chunks))
+
+# for (i in seq_along(chunks)) {
+#   cat(sprintf("Embedding chunk %d / %d\n", i, length(chunks)))
+#   emb_list[[i]] <- model$encode(
+#     prompts[chunks[[i]]],
+#     batch_size = as.integer(32),
+#     show_progress_bar = TRUE
+#   )
+# }
+
+# tag_emb <- do.call(rbind, emb_list)
+# rownames(tag_emb) <- names(tags_tab)
+
+# scratch_out <- file.path(Sys.getenv("TMPDIR"), "data_tags_embedding.RDS")
+# saveRDS(tag_emb, scratch_out)
+# final_out <- "Mapping_landscape_ABM/Data/embeddings/embs_300/data_tags_embedding.RDS"
+# ok <- file.copy(scratch_out, final_out, overwrite = TRUE)
+# if (!ok) stop("file.copy() failed: could not copy embeddings back to /rds")
+# cat("Saved embeddings to:", final_out, "\n")
 
 
 

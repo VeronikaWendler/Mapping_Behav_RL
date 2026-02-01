@@ -1,8 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=3.1_tags                    # should be changed to whatever you are running, otherwise confusion 
+#SBATCH --job-name=3_taxonomy.R                   # should be changed to whatever you are running, otherwise confusion 
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=128G
+#SBATCH --gres=gpu:1
 #SBATCH --output=logs/%x.%j.out
 #SBATCH --error=logs/%x.%j.err
 #SBATCH --mail-type=ALL
@@ -15,8 +16,8 @@ module purge
 module load bear-apps/2024a/live
 
 export HF_HOME=$HOME/.cache/huggingface
-export HF_HUB_OFFLINE=1
-export TRANSFORMERS_OFFLINE=1
+unset HF_HUB_OFFLINE
+unset TRANSFORMERS_OFFLINE
 
 export MPLCONFIGDIR=${SLURM_TMPDIR:-/tmp}/mplcache
 export PYTHONUNBUFFERED=1
@@ -27,5 +28,5 @@ source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 cd ~/projects/Mapping_Behav_RL
 
-python Mapping_landscape_ABM/3.1_tags.py        # or python or Rscript ##
+Rscript Mapping_landscape_ABM/3_taxonomy.R     # or python or Rscript ##
 
