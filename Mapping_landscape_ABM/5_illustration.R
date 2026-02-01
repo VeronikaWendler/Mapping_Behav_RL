@@ -4,7 +4,10 @@ Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
 use_condaenv("mapping_abm", required=TRUE)
 print(py_config())
 source("Mapping_landscape_ABM/_cubes.R")
+require(remotes)
+Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
+remotes::install_github("https://github.com/dwulff/memnet")
 
 data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered.RDS")
 emb = readRDS("Mapping_landscape_ABM/Data/embs_300/combined_emb.RDS")
