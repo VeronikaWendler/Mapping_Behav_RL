@@ -21,22 +21,43 @@ headers = {"Authorization": auth, "Content-Type": "application/json"}
 
 print("DEBUG url repr:", repr(url))
 print("DEBUG auth repr:", repr(auth))
-assert "\n" not in auth and "\r" not in auth, "Authorization contains newline/CR"
-assert auth.startswith("Bearer "), "Authorization header doesn't start with 'Bearer '"
+assert "\n" not in auth and "\r" not in auth, "Authorization contains newline"
+assert auth.startswith("Bearer "), "Authorization doesn't start with 'Bearer '"
 
 
-def run(system, user):
-  
-    data = {
+import json, random, time, requests
+
+def run(system, user, timeout=120, max_retries=6):
+    payload = {
         "model": "meta-llama/Llama-3.3-70B-Instruct",
         "messages": [
             {"role": "system", "content": system},
-            {"role": "user", "content": user}
-        ], 
-        "max_tokens": 500
+            {"role": "user", "content": user},
+        ],
+        "max_tokens": 500,
     }
-    response = requests.post(url, headers=headers, json=data)
-    return response.json()["choices"][0]["message"]["content"]
+
+    for attempt in range(max_retries):
+        try:
+            r = requests.post(url, headers=headers, json=payload, timeout=timeout)
+
+            if r.status_code in (429, 500, 502, 503, 504):
+                time.sleep(min(60, (2 ** attempt) + random.random()))
+                continue
+            if r.status_code != 200:
+                return f"ERROR status={r.status_code} body={r.text[:300]}"
+            j = r.json()
+            if "choices" not in j:
+                return f"ERROR no_choices body={json.dumps(j)[:300]}"
+            return j["choices"][0]["message"]["content"]
+
+        except requests.exceptions.Timeout:
+            time.sleep(min(60, (2 ** attempt) + random.random()))
+            continue
+        except Exception as e:
+            return f"ERROR exception={type(e).__name__} msg={str(e)[:200]}"
+
+    return "ERROR max_retries_exceeded"
 
 
 def run_parallel_map(system_prompt, users, workers=10):
@@ -91,13 +112,14 @@ tags = pd.DataFrame({"id": data["id"].values})
 tags["out"] = ""
 
 batch_size = 256
+workers = 20  
 num_prompts = len(final_user_prompts)
 for i in range(0, num_prompts, batch_size):
     begin = i
     end = min(begin + batch_size, num_prompts) 
     current_prompts = final_user_prompts[begin:end]
     start = time.time()
-    batch_results = run_parallel_map(system_prompt, current_prompts, workers=batch_size) 
+    batch_results = run_parallel_map(system_prompt, current_prompts, workers=workers)
     tags.iloc[begin:end, tags.columns.get_loc('out')] = batch_results 
     duration = round(time.time() - start, 2)
     print(f"Processing batch: {begin//batch_size + 1}, Prompts: {begin} to {end-1}, Duration: {duration}s")
@@ -223,7 +245,7 @@ tags.to_csv("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/tagging/data
 # batch_size = 256
 # num_prompts = len(final_user_prompts)
 
-# WORKERS = 10   # IMPORTANT: do NOT set workers=batch_size
+# WORKERS = 10  
 
 # for i in range(0, num_prompts, batch_size):
 #     begin = i
