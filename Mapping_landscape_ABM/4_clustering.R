@@ -92,7 +92,9 @@ references_emb <- references_emb / ref_scale
 
 
 emb = author_emb |> cbind(references_emb) |> cbind(semantic_emb)
-colnames(emb) = c(paste0("auth_", 1:384), paste0("ref_", 1:384), paste0("sem_", 1:384))
+#colnames(emb) = c(paste0("auth_", 1:384), paste0("ref_", 1:384), paste0("sem_", 1:384))
+colnames(emb) <- c(paste0("auth_", seq_len(ncol(author_emb))),paste0("ref_",  seq_len(ncol(references_emb))),paste0("sem_",  seq_len(ncol(semantic_emb))))
+
 rownames(emb) = data$id
 saveRDS(emb, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/combined_emb.RDS")
 
@@ -111,21 +113,28 @@ readr::write_lines(references_lines, file.path(out_dir, "references_net.txt"))
 readr::write_lines(semantic_lines,   file.path(out_dir, "semantic_net.txt"))
 
 # CLUSTER ----------
+stopifnot(is.matrix(emb))
+storage.mode(emb) <- "double"
 
-pacmap = import("pacmap")
-
-
+pacmap <- import("pacmap")
 set.seed(42)
-model = pacmap$PaCMAP(n_components=as.integer(2), n_neighbors=as.integer(50), 
-                      MN_ratio=3, FP_ratio=10.0, distance="angular")
-
-# lyt = model$fit_transform(emb)
-# colnames(lyt) = c("lyt_x", "lyt_y")
-
-lyt <- model$fit_transform(as.matrix(emb))
-lyt <- as.matrix(lyt)
-
-cat("lyt dim:", paste(dim(lyt), collapse=" x "), "\n")
+model <- pacmap$PaCMAP(
+  n_components = as.integer(2),
+  n_neighbors  = as.integer(50),
+  MN_ratio     = 3,
+  FP_ratio     = 10.0,
+  distance     = "angular"
+)
+# Force conversion: NumPy array -> R matrix
+lyt_py <- model$fit_transform(as.matrix(emb))
+cat("Python type:", class(lyt_py), "\n")
+cat("Python dim (via reticulate py_to_r):\n")
+print(reticulate::py_to_r(reticulate::py_eval("np.array(x).shape", convert = TRUE,
+                                             locals = list(x = lyt_py),
+                                             envir = list(np = import("numpy")))))
+lyt <- as.matrix(lyt_py)
+cat("R dim:", paste(dim(lyt), collapse=" x "), "\n")
+stopifnot(length(dim(lyt)) == 2)
 stopifnot(ncol(lyt) == 2)
 
 colnames(lyt) <- c("lyt_x", "lyt_y")
