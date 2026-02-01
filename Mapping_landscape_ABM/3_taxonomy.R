@@ -1,5 +1,6 @@
 require(tidyverse)
-require(reticulate)
+library(reticulate)
+py_config()  
 
 Sys.setenv(
   HF_HOME = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/hf_cache",
@@ -13,7 +14,11 @@ cat("HF_HOME=", Sys.getenv("HF_HOME"), "\n")
 
 require(remotes)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
-remotes::install_github("https://github.com/dwulff/memnet")
+if (!requireNamespace("memnet", quietly = TRUE)) {
+  remotes::install_github("dwulff/memnet")
+}
+library(memnet)
+
 
 tags <- read_csv(
   "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/tagging/data_tags_v1.csv",

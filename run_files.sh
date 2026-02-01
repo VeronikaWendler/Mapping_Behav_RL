@@ -17,7 +17,6 @@ mkdir -p logs
 module purge
 module load bear-apps/2024a/live
 
-export HF_HOME=$HOME/.cache/huggingface
 unset HF_HUB_OFFLINE
 unset TRANSFORMERS_OFFLINE
 
@@ -28,6 +27,11 @@ export TOKENIZERS_PARALLELISM=false
 # this is my project folder with code
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
+export RETICULATE_PYTHON=$(which python)
+export RENVIRON_USER=/dev/null
+export PYTHONNOUSERSITE=1
+
+
 cd ~/projects/Mapping_Behav_RL
 
 Rscript Mapping_landscape_ABM/3_taxonomy.R     # or python or Rscript ##
