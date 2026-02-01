@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=3_taxonomy.R                   # should be changed to whatever you are running, otherwise confusion 
-#SBATCH --partition=system
+#SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbgpu
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=6
