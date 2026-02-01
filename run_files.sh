@@ -1,9 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=3_taxonomy.R                   # should be changed to whatever you are running, otherwise confusion 
-#SBATCH --time=24:00:00
-#SBATCH --cpus-per-task=6
-#SBATCH --mem=128G
+#SBATCH --partition=system
+#SBATCH --qos=bbgpu
 #SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=6
+#SBATCH --mem=64G
+#SBATCH --time=24:00:00
 #SBATCH --output=logs/%x.%j.out
 #SBATCH --error=logs/%x.%j.err
 #SBATCH --mail-type=ALL
