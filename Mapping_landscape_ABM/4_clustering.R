@@ -12,8 +12,11 @@ if (!requireNamespace("memnet", quietly = TRUE)) {
 }
 library(memnet)
 
-data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged.RDS") %>% 
-  mutate(title_id = paste0(id, "_", str_to_lower(`Title`)))
+data <- readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged.RDS") %>%
+  mutate(
+    id = as.integer(id),
+    title_id = paste0(id, "_", str_to_lower(`Title`))
+  )
 
 
 # COMBINE EMB ----------
@@ -166,6 +169,7 @@ dev.off()
 
 clusters <- as_tibble(lyt, rownames = "id") |>
   mutate(
+    id = as.integer(id),   
     country = clustering,
     continent = case_when(
       country %in% c(11, 12, 30, 20, 14, 16, 4) ~ 1,
