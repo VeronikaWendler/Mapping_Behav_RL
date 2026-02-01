@@ -56,23 +56,23 @@ write_csv(train_pairs, "1_data/semantic_training/train_pairs.csv")
 
 # # PROCESS RATINGS ---------------------------------------------------------------------------------------------------------------------
 
-# train_pairs_ratings = read_csv("1_data/semantic_training/train_pairs_ratings.csv") |> 
-#   mutate(rating = out |> str_extract("Answer=[:digit:]+[:punct:]*$") |> str_remove("Answer=") |> str_remove_all("[:punct:]") |> as.numeric(),
-#          rating_scaled = rating / 100) |> 
-#   select(-1)
+train_pairs_ratings = read_csv("1_data/semantic_training/train_pairs_ratings.csv") |> 
+  mutate(rating = out |> str_extract("Answer=[:digit:]+[:punct:]*$") |> str_remove("Answer=") |> str_remove_all("[:punct:]") |> as.numeric(),
+         rating_scaled = rating / 100) |> 
+  select(-1)
 
-# write_csv(train_pairs_ratings, "1_data/semantic_training/train_pairs_rating_clean.csv")
+write_csv(train_pairs_ratings, "1_data/semantic_training/train_pairs_rating_clean.csv")
 
 
 # # GENERATE NET -----
 
-# torch = import("torch")
-# sbert = import("sentence_transformers")
-# hub = import("huggingface_hub")
-# model = sbert$SentenceTransformer("dwulff/minilm-brl")
+torch = import("torch")
+sbert = import("sentence_transformers")
+hub = import("huggingface_hub")
+model = sbert$SentenceTransformer("dwulff/minilm-brl")
 
-# context = "An article on behavioral reinforcement learning:\n\n"
-# sem_emb = model$encode(paste0(context, data$text))
-# rownames(sem_emb) = data$id
+context = "An article on behavioral reinforcement learning:\n\n"
+sem_emb = model$encode(paste0(context, data$text))
+rownames(sem_emb) = data$id
 
-# saveRDS(sem_emb, "1_data/embs/semantic_emb.RDS")
+saveRDS(sem_emb, "1_data/embs/semantic_emb.RDS")
