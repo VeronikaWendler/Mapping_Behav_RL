@@ -7,7 +7,10 @@ source("Mapping_landscape_ABM/_cubes.R")
 require(remotes)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
-remotes::install_github("https://github.com/dwulff/memnet")
+if (!requireNamespace("memnet", quietly = TRUE)) {
+  remotes::install_github("dwulff/memnet")
+}
+library(memnet)
 
 data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered.RDS")
 emb = readRDS("Mapping_landscape_ABM/Data/embs_300/combined_emb.RDS")
@@ -21,6 +24,7 @@ rownames(author_net) = rownames(reference_net) = rownames(semantic_net) =
 colnames(author_net) = colnames(reference_net) = colnames(semantic_net) = 
   data$title_id
 
+pacmap <- import("pacmap")
 
 model = pacmap$PaCMAP(n_components=as.integer(3), n_neighbors=as.integer(100), 
                       MN_ratio=2, FP_ratio=20.0, distance="angular")
