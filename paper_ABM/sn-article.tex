@@ -510,9 +510,10 @@ Sample body text. Sample body text. Sample body text. Sample body text. Sample b
 
 \section{Methods}\label{sec11}
 
-1. We used Scopus to retrieve 9023 articles in the field of behavioural agent-based modeling by using the below keyword search: 
+{\Large 1.} \textbf{Article Search Strategy}.
+We used Scopus to retrieve 9023 articles in the field of behavioural agent-based modeling by using the keyword search pattern below: 
 
-\vspace{1em}
+\vspace{0.70em}
 
 \lstset{
   basicstyle=\ttfamily\small,
@@ -554,28 +555,137 @@ TITLE-ABS-KEY(
 )
 \end{lstlisting}
 
+\vspace{0.70em}
 
 The search was limited to English-language publications within the social sciences, including economics, marketing, finance, decision sciences, environmental sciences, computer science, and psychology. Consistent with Thoma et al. (2025), we included only empirical research articles, review papers, conference proceedings (due to their preliminary use in computer science), and excluded book chapters.
 
 \vspace{1em}
 
-2. We then conducted a data-cleaning procedure, removing duplicate records and entries with missing values in the articles "Title", "Abstract", "References", and "Author(s) ID". This process resulted in a cleaned data frame containing 8933 articles after filtering out 16 entries without an abstract, 54 entries without references, 23 duplicate entries, and 2 entries with incomplete author information.
+{\Large 2.} \textbf{Data-Wrangling}.
+We then conducted a data-cleaning procedure, removing duplicate records and entries with missing values in the articles "Title", "Abstract", "References", and "Author(s) ID". This process resulted in a cleaned data frame containing 8933 articles after filtering out 16 entries without an abstract, 54 entries without references, 23 duplicate entries, and 2 entries with incomplete author information.
+We further cleaned the abstract texts by removing publisher boilerplates, copyright statements, database artefacts, and auxiliary sections (e.g., Significance Statement, Research Highlights, or publication year within the body of the abstract). In addition, we stripped structured-abstract organizers (e.g., Background, Methods, Results, Conclusions) while preserving the substantive content. We also inspected the length distributions of the abstracts to verify the cleaning procedure, which resulted in a mean of 1354 characters (+/- 468 SD).
 
 \vspace{1em}
 
-3. We further cleaned the abstract texts by removing publisher boilerplates, copyright statements, database artefacts, and auxiliary sections (e.g., Significance Statement, Research Highlights, or publication year within the body of the abstract). In addition, we stripped structured-abstract organizers (e.g., Background, Methods, Results, Conclusions) while preserving the substantive content. We also inspected the length distributions of the abstracts to verify the cleaning procedure, which resulted in a mean of 1354 characters (+/- 468 SD).
+{\Large 3.} \textbf{Semantic Filtering via Embedding-Based Regularized Logistic Regression}.
+To automatically identify and exclude out-of-scope articles prior to subsequent analyses, we implemented a regression-based semantic filtering procedure that combined pretrained sentence embeddings with regularized logistic regression.
+
+\vspace{0.70em}
+
+\textbf{Text Embedding}.
+All text representations were derived from a pretrained Sentence-BERT (SBERT) model (sentence-transformers/all-MiniLM-L6-v2). This model maps variable-length text inputs into fixed-dimensional dense vector representations that capture semantic similarity. For each article, we embedded the full abstract text using the SBERT encoder, resulting in a 384-dimensional embedding per document. To ensure comparability across embedding dimensions and to avoid scale-induced bias in downstream regression, each embedding dimension was standardized across documents using z-transformation (mean = 0, standard deviation = 1).
+
+\vspace{0.70em}
+
+\textbf{Training Labels}.
+Model training was based on a manually labeled subset of 300 articles. Each article was annotated with a binary indicator reflecting whether it fell outside the target research domain. An article was labeled in-scope if its abstract clearly indicated that agent-based modeling was used to study human behavior, human decision-making, or the interaction between human agents and their environment. Articles that applied agent-based models to non-human systems (e.g., ecological or biological processes) were labeled out-of-scope when human behavior was not involved. However, such articles were considered in-scope when the research question concerned how human decisions or actions influenced these systems. These annotations served as the dependent variable in all regression analyses.
+
+\vspace{0.70em}
+
+\textbf{Regularized Logistic Regression}.
+We modeled the probability that an article was out-of-scope using ridge-regularized logistic regression, implemented via the \texttt{glmnet} package in \texttt{R}. Ridge regularization (L2 penalty; $\alpha = 0$) was chosen to stabilize coefficient estimates in the presence of high-dimensional and correlated predictors, as is typical for dense semantic embeddings.
+
+Formally, the model estimates
+\[
+\Pr(y_i = 1 \mid \mathbf{x}_i) = \mathrm{logit}^{-1}\left(\beta_0 + \mathbf{x}_i^\top \boldsymbol{\beta}\right),
+\]
+where $y_i \in \{0,1\}$ denotes the out-of-scope label for article $i$, $\mathbf{x}_i$ represents its standardized SBERT embedding vector, $\beta_0$ is the intercept, and $\boldsymbol{\beta}$ is the vector of regression coefficients.
+
+\vspace{0.70em}
+
+\textbf{Cross-Validation and Hyperparameter Selection}.
+To select the regularization strength, we employed repeated random-split cross-validation. That is, we performed 100 independent runs, each time randomly partitioning the labeled dataset into an 80\% training set and a 20\% test set. For each run, models were estimated across a grid of penalty parameters
+\[
+\lambda \in \exp\left(\{-10, -9, \ldots, 10\}\right)
+\]
+
+For each value of $\lambda$, model performance on the held-out test set was evaluated using two complementary metrics: (i) classification accuracy based on hard class predictions, and (ii) deviance, defined as $-2$ times the log-likelihood of the test data under the predicted probabilities. Performance metrics were averaged across runs to obtain stable estimates for each regularization level. The optimal penalty parameter was selected as the value of $\lambda$ minimizing the mean test deviance across runs, reflecting the best trade-off between model fit and regularization.
+
+\vspace{0.70em}
+
+\textbf{Final Model Estimation and Application}.
+Using the selected regularization parameter, we refit the ridge-regularized logistic regression model on the full set of labeled abstracts. The trained model was then applied to the full corpus of cleaned articles. Abstracts were embedded using the same pretrained SBERT model, and embedding dimensions were z-standardized prior to prediction. The model produced out-of-scope scores (predicted probabilities) for each article, which were used to determine which records were retained for downstream analyses.
+
+Articles classified as in-scope (i.e., predicted probability below the decision threshold corresponding to class 0) were retained for all subsequent analyses. The resulting filtered dataset formed the basis for downstream modeling and semantic analyses.
+
+\vspace{0.70em}
+
+\textbf{Reproducibility}.
+All analyses were conducted with fixed random seeds to ensure reproducibility. Model outputs, diagnostic figures, and logs were automatically written to time-stamped output directories, providing a complete and auditable record of model fitting, cross-validation results, and final predictions.
+
+\vspace{0.70em}
+
+Results of the logistic ridge regression trained on 300 labled abstracts (labeled as 1 = out of scope or 0 = in scope): 6794 of 8933 abstracts were kept after filtering. 
 
 \vspace{1em}
 
-4. This here is the detailed explanation of using a logistic ridge regression model to identify out of scope papers (given a smaller, manually labeled trainings set).
-
-
-Results of the logistic ridge regression trained on 300 labled abstracts (labeled as 1 = out of scope or 0 = in scope). [2026-01-28 17:07:52.955533] Encoding full data (8933 abstracts)...
-[2026-01-28 17:16:59.963178] Wrote filtered data: 6794/8933 rows kept.
-
-
+{\Large 4.} \textbf{Author-based embeddings.}
+To construct a document representation based on authorship, we parsed each article’s \texttt{Author(s) ID} field into a set of author identifiers per document and assembled a sparse document--author incidence matrix (articles $\times$ authors), with entries indicating whether an author appeared on a given paper. Authors occurring in only a single document were removed to reduce sparsity and noise.
 
 \vspace{1em}
+We can debate whether we really want this because my guess is that agent-based modeling often involves researcher's who used this method only once (or very few times).
+\vspace{1em}
+
+The resulting matrix was transformed using a sparse positive pointwise mutual information (PPMI) weighting, and a rank-384 truncated singular value decomposition (SVD) was applied. Document embeddings were obtained from the left singular vectors scaled by singular values ($U D$), yielding a 384-dimensional author-embedding per article.
+
+\vspace{1em}
+
+\textbf{Reference-based embeddings.}
+To derive document representations from citation patterns, we split each article’s \texttt{References} field into individual reference strings and applied text normalization (lowercasing, removal of punctuation and digits, removal of short tokens, whitespace collapsing) to improve matching across variant formats. We then constructed a sparse document--reference incidence matrix (articles $\times$ unique references). References with very low frequency were excluded (occurring in $\leq 4$ articles) to focus on informative citation links.
+
+\vspace{1em}
+
+Again, this is debatable, we need to check the results first. We can debate whether we really want this because my guess is that agent-based modeling often involves researcher's who used this method only once (or very few times).
+\vspace{1em}
+
+As above, the matrix was converted to a sparse PPMI representation and decomposed using a rank-384 truncated SVD. Document embeddings were computed as $U D$, producing 384-dimensional reference-embeddings per article. Cosine similarities were computed for diagnostic inspection, and embeddings were saved for subsequent modeling and visualization.
+
+\vspace{1em}
+
+{\Large 5.} \textbf{Semantic Pair Construction and Similarity Annotation.}
+To construct training data for domain-specific semantic representation learning, we implemented a two-stage procedure combining embedding-based clustering with large language model (LLM) similarity judgments.
+
+\vspace{0.70em}
+
+\textbf{Document Embedding and Clustering.} Each article was represented by a combined text input consisting of its title and cleaned abstract. Texts were embedded using a pretrained Sentence-BERT model (\texttt{sentence-transformers/all-MiniLM-L6-v2}), yielding 384-dimensional semantic embeddings per document. Pairwise cosine similarities between embeddings were computed and converted to angular similarities to ensure numerical stability. Based on these similarities, documents were hierarchically clustered using average-linkage clustering and partitioned into $K=50$ clusters, providing a coarse semantic organization of the corpus.
+
+\vspace{0.75em}
+
+\textbf{Training Pair Sampling.}
+Candidate document pairs were generated exhaustively and labeled according to whether both documents originated from the same cluster (within-cluster) or from different clusters (between-cluster). For each cluster, up to 1,000 within-cluster and 1,000 between-cluster pairs were sampled, with sampling probabilities proportional to a high-power transformation of their semantic similarity to emphasize informative comparisons. All sampled pairs were pooled and randomly subsampled to obtain a final set of 50,000 document pairs. For each pair, the full title--abstract texts of both articles were retained.
+
+\vspace{0.75em}
+
+\textbf{LLM-Based Similarity Annotation.}
+Each document pair was annotated using a large language model (Meta LLaMA 3.3 70B Instruct) accessed via a remote API from Huggingface. The model was prompted to compare the two articles based exclusively on their titles and abstracts and to assess the similarity of their \emph{specific research topics} within the domain of behavioural agent-based modeling. The model produced (i) a brief natural-language justification and (ii) a numerical similarity rating on a 0--100 scale, where higher values indicate greater topical overlap. Requests were executed in parallel with automatic retry logic to handle transient failures, and progress was checkpointed to allow safe resumption. Numerical similarity scores were extracted from the model outputs, cleaned, and linearly rescaled to the unit interval. These ratings served as supervision for subsequent representation learning.
+
+\vspace{0.75em}
+
+\textbf{Fine-Tuned Semantic Embeddings.}
+Using the annotated pairs, a domain-adapted Sentence-BERT model (\texttt{dwulff/minilm-brl}) was employed to generate refined semantic embeddings. Documents were embedded by prepending a fixed domain-specific context string to the title--abstract text prior to encoding.
+
+\vspace{1em}
+
+ {\Large 6.} \textbf{Fine-Tuning Sentence-BERT on Human Similarity Judgments.}
+To obtain a domain-adapted semantic representation aligned with human judgments of topical similarity, we fine-tuned a pretrained Sentence-BERT (SBERT) model using the annotated article pairs described above.
+
+\vspace{0.75em}
+
+\textbf{Training Data and Preprocessing.}
+The training dataset consisted of 17045 article pairs, each associated with a continuous similarity rating derived from llm annotations. Each input consisted of two texts, corresponding to the title and abstract of two articles. To provide consistent domain context, a fixed prefix describing the field of behavioral agent-based modeling was applied to all texts prior to encoding. We initialized the model with the pretrained \texttt{sentence-transformers/all-MiniLM-L6-v2} architecture. Fine-tuning was performed using the cosine similarity loss, which encourages the cosine similarity between paired sentence embeddings to match the corresponding human similarity score. This objective directly optimizes the alignment between geometric distance in embedding space and perceived semantic similarity.
+
+\vspace{0.75em}
+
+\textbf{Training Procedure and Evaluation.}
+For model selection, the dataset was randomly split into a training set (80\%) and a held-out test set (20\%). Prior to fine-tuning, model performance was evaluated by computing the Pearson correlation between cosine similarities of the pretrained embeddings and the human similarity ratings. The model was then fine-tuned for five epochs using mini-batches of size 64. After fine-tuning, performance was re-evaluated on both the training and test sets using the same Pearson correlation metric. Following evaluation, the model was re-initialized and trained on the full dataset using the same hyperparameters to obtain the final domain-adapted encoder, which was saved for downstream analyses. Model performance was assessed using Pearson correlation between predicted cosine similarities and human similarity ratings which reflects the degree to which the learned embedding space preserves the judgments of the relatedness of topics in ABM.
+
+\vspace{0.75em}
+
+\textbf{Results.}
+The labeled dataset exhibited a strong skew toward low similarity (mean $\text{rating}=0.1693$, SD $=0.1964$), indicating that most sampled pairs were only weakly related. In the pre-fine-tuning evaluation (80/20 split; $n_{\text{train}}=13{,}636$, $n_{\text{test}}=3{,}409$), the base SBERT model already tracked the similarity ratings well, achieving Pearson correlations of $r=0.7418$ on the training set and $r=0.7334$ on the test set which means that overfitting was unlikely.
+
+
+\vspace{10em}
 
 \textbf{Ethical approval declarations} (only required where applicable) Any article reporting experiment/s carried out on (i)~live vertebrate (or higher invertebrates), (ii)~humans or (iii)~human samples must include an unambiguous statement within the methods section that meets the following requirements: 
 
