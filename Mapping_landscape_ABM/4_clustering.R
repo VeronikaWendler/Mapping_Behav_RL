@@ -7,7 +7,10 @@ print(py_config())
 require(remotes)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
-remotes::install_github("https://github.com/dwulff/memnet")
+if (!requireNamespace("memnet", quietly = TRUE)) {
+  remotes::install_github("dwulff/memnet")
+}
+library(memnet)
 
 data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged.RDS") %>% 
   mutate(title_id = paste0(id, "_", str_to_lower(`Title`)))
@@ -15,10 +18,9 @@ data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/
 
 # COMBINE EMB ----------
 
-author_emb = readRDS("Mapping_landscape_ABM/Data/embeddings/embs_300/author_emb.RDS")
-references_emb = readRDS("Mapping_landscape_ABM/Data/embeddings/embs_300/references_emb.RDS")
-semantic_emb = readRDS("Mapping_landscape_ABM/Data/embeddings/embs_300/semantic_emb.RDS")
-
+author_emb = readRDS("Mapping_landscape_ABM/Data/embs_300/author_emb.RDS")
+references_emb = readRDS("Mapping_landscape_ABM/Data/embs_300/references_emb.RDS")
+semantic_emb = readRDS("Mapping_landscape_ABM/Data/embs_300/semantic_emb.RDS")
 
 author_norms = apply(author_emb, 2, function(x) sqrt(sum(x^2)))
 references_norms = apply(references_emb, 2, function(x) sqrt(sum(x^2)))
@@ -36,15 +38,15 @@ author_net = embedR::er_compare_vectors(author_emb, metric="arccos")
 references_net = embedR::er_compare_vectors(references_emb, metric="arccos")
 semantic_net = embedR::er_compare_vectors(semantic_emb, metric="arccos")
 
-author_lines = sapply(1:nrow(author_net), function(x) paste0(author_net[i,], collapse=","))
-references_lines = sapply(1:nrow(references_net), function(x) paste0(references_net[i,], collapse=","))
-semantic_lines = sapply(1:nrow(semantic_net), function(x) paste0(semantic_net[i,], collapse=","))
+author_lines <- apply(author_net, 1, paste, collapse = ",")
+references_lines <- apply(references_net, 1, paste, collapse = ",")
+semantic_lines <- apply(semantic_net, 1, paste, collapse = ",")
 
 out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/nets"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-write_lines(author_lines,     file.path(out_dir, "author_net.txt"))
-write_lines(references_lines, file.path(out_dir, "references_net.txt"))
-write_lines(semantic_lines,   file.path(out_dir, "semantic_net.txt"))
+readr::write_lines(author_lines,     file.path(out_dir, "author_net.txt"))
+readr::write_lines(references_lines, file.path(out_dir, "references_net.txt"))
+readr::write_lines(semantic_lines,   file.path(out_dir, "semantic_net.txt"))
 
 # CLUSTER ----------
 
@@ -55,7 +57,7 @@ set.seed(42)
 model = pacmap$PaCMAP(n_components=as.integer(2), n_neighbors=as.integer(50), 
                       MN_ratio=3, FP_ratio=10.0, distance="angular")
 
-#lyt = model$fit_transform(emb)
+lyt = model$fit_transform(emb)
 colnames(lyt) = c("lyt_x", "lyt_y")
 
 cluster = hclust(dist(lyt), method = "complete")
@@ -82,4 +84,3 @@ clusters = as_tibble(lyt) |>
 
 data = data |> left_join(clusters, by = "id")
 saveRDS(data, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered.RDS")
-
