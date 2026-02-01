@@ -24,7 +24,7 @@ export MPLCONFIGDIR=${SLURM_TMPDIR:-/tmp}/mplcache
 export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 
-# this is my project folder with code
+# this is my project folder with code #
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 export RETICULATE_PYTHON=$(which python)

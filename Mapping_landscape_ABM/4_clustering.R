@@ -125,20 +125,27 @@ model <- pacmap$PaCMAP(
   FP_ratio     = 10.0,
   distance     = "angular"
 )
-# Force conversion: NumPy array -> R matrix
-lyt_py <- model$fit_transform(as.matrix(emb))
 
-shape <- lyt_py$shape
-cat("numpy shape:", as.integer(shape[[1]]), "x", as.integer(shape[[2]]), "\n")
+lyt_raw <- model$fit_transform(as.matrix(emb))
 
-# Convert to R matrix and verify again
-lyt <- as.matrix(lyt_py)
+if (reticulate::is_py_object(lyt_raw)) {
+  shape <- reticulate::py_to_r(lyt_raw$shape)
+  cat("numpy shape:", shape[1], "x", shape[2], "\n")
+  lyt <- reticulate::py_to_r(lyt_raw)
+} else {
+  cat("fit_transform returned R object of class:", class(lyt_raw), "\n")
+  if (is.numeric(lyt_raw) && length(lyt_raw) == nrow(emb) * 2) {
+    lyt <- matrix(lyt_raw, ncol = 2, byrow = TRUE)
+  } else {
+    lyt <- as.matrix(lyt_raw)
+  }
+}
+
 cat("R dim:", paste(dim(lyt), collapse=" x "), "\n")
 stopifnot(ncol(lyt) == 2)
 
 colnames(lyt) <- c("lyt_x", "lyt_y")
 rownames(lyt) <- rownames(emb)
-
 
 
 cluster = hclust(dist(lyt), method = "complete")
