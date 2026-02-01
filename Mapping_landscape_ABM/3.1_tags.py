@@ -5,15 +5,24 @@ import time
 import sys
 import itertools
 from functools import partial 
+import re 
 
-with open("Mapping_landscape_ABM/Data/semantic_training/api.txt", "r") as f:
-    url = f.readline().strip()
-    auth = f.readline().strip()
 
-headers = {
-    "Authorization": auth,
-    "Content-Type": "application/json",
-}
+with open("Mapping_landscape_ABM/Data/semantic_training/api.txt", "r", encoding="utf-8") as f:
+    url = f.readline()
+    auth = f.readline()
+
+url = url.strip()
+auth = auth.strip()
+auth = auth.replace("\r", "").replace("\n", "")
+auth = re.sub(r"[\x00-\x1F\x7F]", "", auth)
+
+headers = {"Authorization": auth, "Content-Type": "application/json"}
+
+print("DEBUG url repr:", repr(url))
+print("DEBUG auth repr:", repr(auth))
+assert "\n" not in auth and "\r" not in auth, "Authorization contains newline/CR"
+assert auth.startswith("Bearer "), "Authorization header doesn't start with 'Bearer '"
 
 
 def run(system, user):
