@@ -1,6 +1,5 @@
 require(tidyverse)
 library(reticulate)
-py_config()  
 
 Sys.setenv(
   HF_HOME = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/hf_cache",
@@ -10,6 +9,7 @@ Sys.setenv(
 dir.create(Sys.getenv("HF_HOME"), recursive = TRUE, showWarnings = FALSE)
 
 cat("HF_HOME=", Sys.getenv("HF_HOME"), "\n")
+print(py_config())
 
 
 require(remotes)
