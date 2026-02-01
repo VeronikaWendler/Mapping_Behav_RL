@@ -7,14 +7,14 @@ import itertools
 from functools import partial 
 
 with open("Mapping_landscape_ABM/Data/semantic_training/api.txt", "r") as f:
-  api = f.readlines()
-
-url = api[0]
+    url = f.readline().strip()
+    auth = f.readline().strip()
 
 headers = {
-    'Authorization': api[1],
-    'Content-Type': 'application/json'
+    "Authorization": auth,
+    "Content-Type": "application/json",
 }
+
 
 def run(system, user):
   
