@@ -12,7 +12,7 @@ data = readRDS("1_data/data_cleaned_filtered_tagged.RDS") %>%
   mutate(title_id = paste0(id, "_", str_to_lower(`Title`)))
 
 
-# COMBINE EMB ----------
+# COMBINE EMB -----------
 
 author_emb = readRDS("1_data/embs/author_emb.RDS")
 references_emb = readRDS("1_data/embs/references_emb.RDS")
