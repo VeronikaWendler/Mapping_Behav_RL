@@ -1,6 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=ollama_cpu
+#SBATCH --job-name=ollama_gpu
 #SBATCH --account=zhanglp-vwendler-core
+#SBATCH --qos=bbgpu
+#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
@@ -26,18 +28,23 @@ conda activate mapping_abm
 cd /rds/projects/z/zhanglp-vwendler-core/
 unset APPTAINER_BIND
 
+# Sanity check: confirm Slurm gave you a GPU and it’s visible
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
+echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}"
+nvidia-smi || true
+
 # persistent cache on RDS
 mkdir -p /rds/projects/z/zhanglp-vwendler-core/ollama_models
 mkdir -p ~/.ollama
 ln -sfn /rds/projects/z/zhanglp-vwendler-core/ollama_models ~/.ollama/models
 
-# pull container once
+# pull container once (your check is fine, but this ensures a stable filename)
 if [ ! -f ollama_latest.sif ]; then
-  apptainer pull docker://ollama/ollama
+  apptainer pull ollama_latest.sif docker://ollama/ollama
 fi
 
-# start ollama (CPU)
-apptainer exec ollama_latest.sif ollama serve > ollama_server.log 2>&1 &
+# start ollama (GPU-capable via --nv)
+apptainer exec --nv ollama_latest.sif ollama serve > ollama_server.log 2>&1 &
 OLLAMA_PID=$!
 
 cleanup() { kill $OLLAMA_PID 2>/dev/null || true; }
@@ -59,8 +66,8 @@ fi
 
 # pull model only if missing
 MODEL="llama2:7b"
-if ! apptainer exec ollama_latest.sif ollama list | awk '{print $1}' | grep -qx "$MODEL"; then
-  apptainer exec ollama_latest.sif ollama pull "$MODEL"
+if ! apptainer exec --nv ollama_latest.sif ollama list | awk '{print $1}' | grep -qx "$MODEL"; then
+  apptainer exec --nv ollama_latest.sif ollama pull "$MODEL"
 fi
 
 cd ~/projects/Mapping_Behav_RL
