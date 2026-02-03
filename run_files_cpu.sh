@@ -1,8 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=ollama_gpu
 #SBATCH --account=zhanglp-vwendler-core
-#SBATCH --qos=bbgpu
-#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=64G
 #SBATCH --time=02:00:00
@@ -71,4 +69,4 @@ if ! apptainer exec --nv ollama_latest.sif ollama list | awk '{print $1}' | grep
 fi
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/2.1_semantic_ratings.py
+Rscript Mapping_landscape_ABM/4_centroid_stuff.R
