@@ -205,7 +205,8 @@ generate_continent_labels <- function(data, centroids,
   labels_df <- centroids %>%
     select(continent_new, centroid_x, centroid_y) %>%
     rename(continent = continent_new) %>%
-    distinct()
+    # ADD THIS LINE: Keep only one row per continent
+    distinct(continent, .keep_all = TRUE)
   
   # Option 1: Labels from tags (if available and usable)
   if (use_tags && "tags_clean" %in% colnames(data)) {
@@ -435,13 +436,12 @@ create_objective_science_map <- function(data, labels_df,
 
 generate_analytics <- function(data, labels_df, centroids) {
   
-  # Summary statistics - CHECK COLUMN NAME
+  # Summary statistics - ADD DISTINCT() to remove duplicates
   continent_summary <- data %>%
     group_by(continent) %>%
     summarise(
       n_papers = n(),
       n_countries = n_distinct(country),
-      # Try different possible column names
       avg_year = ifelse("Year" %in% colnames(data), 
                        mean(Year, na.rm = TRUE),
                        ifelse("year" %in% colnames(data),
@@ -455,6 +455,8 @@ generate_analytics <- function(data, labels_df, centroids) {
       density = n() / (sd(lyt_x, na.rm = TRUE) * sd(lyt_y, na.rm = TRUE)),
       .groups = "drop"
     ) %>%
+    # ADD THIS LINE to get distinct continent rows
+    distinct(continent, .keep_all = TRUE) %>%
     left_join(labels_df, by = "continent") %>%
     arrange(desc(n_papers)) %>%
     mutate(
