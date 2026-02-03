@@ -435,14 +435,23 @@ create_objective_science_map <- function(data, labels_df,
 
 generate_analytics <- function(data, labels_df, centroids) {
   
-  # Summary statistics
+  # Summary statistics - CHECK COLUMN NAME
   continent_summary <- data %>%
     group_by(continent) %>%
     summarise(
       n_papers = n(),
       n_countries = n_distinct(country),
-      avg_year = mean(Year, na.rm = TRUE),
-      year_range = paste(min(Year, na.rm = TRUE), "-", max(Year, na.rm = TRUE)),
+      # Try different possible column names
+      avg_year = ifelse("Year" %in% colnames(data), 
+                       mean(Year, na.rm = TRUE),
+                       ifelse("year" %in% colnames(data),
+                             mean(year, na.rm = TRUE),
+                             NA)),
+      year_range = ifelse("Year" %in% colnames(data),
+                         paste(min(Year, na.rm = TRUE), "-", max(Year, na.rm = TRUE)),
+                         ifelse("year" %in% colnames(data),
+                               paste(min(year, na.rm = TRUE), "-", max(year, na.rm = TRUE)),
+                               "N/A")),
       density = n() / (sd(lyt_x, na.rm = TRUE) * sd(lyt_y, na.rm = TRUE)),
       .groups = "drop"
     ) %>%
@@ -461,7 +470,6 @@ generate_analytics <- function(data, labels_df, centroids) {
     summarise(n_papers = n(), .groups = "drop") %>%
     arrange(continent, desc(n_papers))
   
-  # Save outputs
   write_csv(continent_summary, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/continent_summary.csv")
   write_csv(country_mapping, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/country_to_continent_mapping.csv")
   
