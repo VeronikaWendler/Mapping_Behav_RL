@@ -2,7 +2,7 @@
 #SBATCH --job-name=5_illustration.R                   # should be changed to whatever you are running, otherwise confusion 
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbgpu
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
