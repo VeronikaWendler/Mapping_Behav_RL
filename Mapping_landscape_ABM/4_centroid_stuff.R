@@ -162,6 +162,7 @@ cluster_countries_into_continents <- function(data) {
   
   # Join back to original data
   data_with_continents <- data %>%
+    select(-any_of("continent")) %>%
     left_join(centroids %>% select(country, continent_new), by = "country") %>%
     rename(continent = continent_new)
   
