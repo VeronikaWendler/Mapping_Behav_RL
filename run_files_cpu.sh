@@ -1,14 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=tagging_ollama_cpu
+#SBATCH --job-name=semantic_ratings_ollama_gpu
 #SBATCH --account=zhanglp-vwendler-core
-#SBATCH --cpus-per-task=6
+#SBATCH --qos=bbgpu
+#SBATCH --gres=gpu:a100:1
+#SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/%x.%j.out
 #SBATCH --error=logs/%x.%j.err
-#SBATCH --mail-type=ALL
+#SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=VAW508@student.bham.ac.uk
-
 
 set -euo pipefail
 mkdir -p logs
@@ -37,14 +38,11 @@ if [ ! -f ollama_latest.sif ]; then
   apptainer pull docker://ollama/ollama
 fi
 
-# start ollama
-apptainer exec ollama_latest.sif ollama serve > ollama_server.log 2>&1 &
+# start ollama WITH GPU passthrough
+apptainer exec --nv ollama_latest.sif ollama serve > ollama_server.log 2>&1 &
 OLLAMA_PID=$!
 
-# ensure server is killed even if python crashes
-cleanup() {
-  kill $OLLAMA_PID 2>/dev/null || true
-}
+cleanup() { kill $OLLAMA_PID 2>/dev/null || true; }
 trap cleanup EXIT
 
 # wait until ready
@@ -55,21 +53,17 @@ for i in {1..60}; do
   sleep 1
 done
 
-# fail fast if server never came up
 if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
   echo "[FATAL] Ollama server did not start." >&2
+  tail -n 50 ollama_server.log || true
   exit 1
 fi
 
-# pull model only if missing
+# Pull model only if missing
 MODEL="llama2:7b"
-if ! apptainer exec ollama_latest.sif ollama list | awk '{print $1}' | grep -qx "$MODEL"; then
-  apptainer exec ollama_latest.sif ollama pull "$MODEL"
+if ! apptainer exec --nv ollama_latest.sif ollama list | awk '{print $1}' | grep -qx "$MODEL"; then
+  apptainer exec --nv ollama_latest.sif ollama pull "$MODEL"
 fi
 
-# run script
 cd ~/projects/Mapping_Behav_RL
 python Mapping_landscape_ABM/2.1_semantic_ratings.py
-
-
-

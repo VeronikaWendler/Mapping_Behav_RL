@@ -23,7 +23,7 @@ ANSWER_RE = re.compile(r"^Answer=\[(\d{1,3})\]\s*$")
 def extract_rating_or_die(text: str) -> int:
     """
     Accept ONLY: Answer=[0-100]
-    Anything else -> crash the job so you notice immediately.
+    Anything else -> crash the job.
     """
     if text is None:
         raise RuntimeError("Model returned None")
