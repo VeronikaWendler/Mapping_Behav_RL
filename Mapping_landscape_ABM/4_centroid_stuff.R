@@ -528,8 +528,8 @@ main <- function() {
   
   # Step 5: Save updated data
   cat("\nStep 5: Saving updated dataset...\n")
-  saveRDS(data_with_continents, "1_data/data_cleaned_filtered_tagged_clustered_objective.RDS")
-  write_csv(data_with_continents, "1_data/data_cleaned_filtered_tagged_clustered_objective.csv")
+  saveRDS(data_with_continents, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered_objective.RDS")
+  write_csv(data_with_continents, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered_objective.csv")
   
   cat("\n=== COMPLETION SUMMARY ===\n")
   cat(sprintf("1. Created %d objective continents\n", 
