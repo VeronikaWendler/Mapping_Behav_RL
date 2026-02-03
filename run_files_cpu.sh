@@ -2,7 +2,7 @@
 #SBATCH --job-name=semantic_ratings_ollama_gpu
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbgpu
-#SBATCH --gres=gpu:a100:1
+#SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
