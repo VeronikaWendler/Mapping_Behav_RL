@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=semantic_ratings_ollama_gpu
+#SBATCH --job-name=ollama_cpu
 #SBATCH --account=zhanglp-vwendler-core
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=6
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/%x.%j.out
 #SBATCH --error=logs/%x.%j.err
-#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-type=ALL
 #SBATCH --mail-user=VAW508@student.bham.ac.uk
 
 set -euo pipefail
@@ -31,13 +31,13 @@ mkdir -p /rds/projects/z/zhanglp-vwendler-core/ollama_models
 mkdir -p ~/.ollama
 ln -sfn /rds/projects/z/zhanglp-vwendler-core/ollama_models ~/.ollama/models
 
-# container present?
+# pull container once
 if [ ! -f ollama_latest.sif ]; then
   apptainer pull docker://ollama/ollama
 fi
 
-# start ollama WITH GPU passthrough
-apptainer exec --nv ollama_latest.sif ollama serve > ollama_server.log 2>&1 &
+# start ollama (CPU)
+apptainer exec ollama_latest.sif ollama serve > ollama_server.log 2>&1 &
 OLLAMA_PID=$!
 
 cleanup() { kill $OLLAMA_PID 2>/dev/null || true; }
@@ -53,14 +53,14 @@ done
 
 if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
   echo "[FATAL] Ollama server did not start." >&2
-  tail -n 50 ollama_server.log || true
+  tail -n 80 ollama_server.log || true
   exit 1
 fi
 
-# Pull model only if missing
+# pull model only if missing
 MODEL="llama2:7b"
-if ! apptainer exec --nv ollama_latest.sif ollama list | awk '{print $1}' | grep -qx "$MODEL"; then
-  apptainer exec --nv ollama_latest.sif ollama pull "$MODEL"
+if ! apptainer exec ollama_latest.sif ollama list | awk '{print $1}' | grep -qx "$MODEL"; then
+  apptainer exec ollama_latest.sif ollama pull "$MODEL"
 fi
 
 cd ~/projects/Mapping_Behav_RL
