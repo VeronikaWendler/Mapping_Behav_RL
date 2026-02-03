@@ -572,4 +572,4 @@ if (interactive()) {
 
 cat("\n", strrep("=", 60), "\n", sep="")
 cat("OBJECTIVE CONTINENT DEFINITION COMPLETE\n")
-cat(strrep("=", 60), "\n")
+cat(strrep("=", 60), "\n") #
