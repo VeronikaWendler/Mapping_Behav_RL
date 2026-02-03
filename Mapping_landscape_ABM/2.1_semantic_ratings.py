@@ -5,57 +5,80 @@ import json
 import csv
 import random
 import requests
+import concurrent.futures
 import pandas as pd
+from functools import partial
 
 # ----------------------------
-# Local Ollama 
+# Local Ollama
 # ----------------------------
-OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
+OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 MODEL = "llama2:7b"
 
-session = requests.Session()
+# One session per thread is safest; requests.Session isn't perfectly thread-safe.
+def make_session():
+    s = requests.Session()
+    s.headers.update({"Content-Type": "application/json"})
+    return s
 
 # ----------------------------
 # Strict parsing / validation
 # ----------------------------
-ANSWER_RE = re.compile(r"^Answer=\[(\d{1,3})\]\s*$")
+# We accept Answer=[n] where n is 0..100, and we FAIL if we can't find it.
+ANSWER_RE = re.compile(r"Answer=\[(\d{1,3})\]")
 
 def extract_rating_or_die(text: str) -> int:
-    """
-    Accept ONLY: Answer=[0-100]
-    Anything else -> crash the job.
-    """
     if text is None:
         raise RuntimeError("Model returned None")
-
-    # Take last non-empty line (helps if model adds junk above)
-    lines = [ln.strip() for ln in str(text).splitlines() if ln.strip()]
-    if not lines:
+    s = str(text).strip()
+    if not s:
         raise RuntimeError("Empty model response")
 
-    last = lines[-1]
-    m = ANSWER_RE.match(last)
-    if not m:
-        raise RuntimeError(f"Bad format. Last line must be Answer=[n]. Got: {last[:200]}")
+    # Find the LAST occurrence of Answer=[...]
+    matches = list(ANSWER_RE.finditer(s))
+    if not matches:
+        raise RuntimeError(f"Missing Answer=[n]. Got: {s[:200]}")
 
-    val = int(m.group(1))
+    val = int(matches[-1].group(1))
     if not (0 <= val <= 100):
-        raise RuntimeError(f"Rating out of range: {val}")
+        raise RuntimeError(f"Rating out of range (0-100): {val}")
 
     return val
 
-def run_one(system: str, user: str, timeout: int = 900, max_retries: int = 3) -> str:
+def ensure_ollama_up_or_die():
+    try:
+        r = requests.get("http://127.0.0.1:11434/api/tags", timeout=10)
+        if r.status_code != 200:
+            raise RuntimeError(f"Ollama not ready: {r.status_code} {r.text[:200]}")
+    except Exception as e:
+        raise SystemExit(f"[FATAL] Local Ollama not reachable at 127.0.0.1:11434: {e}")
+
+def atomic_write_csv(df: pd.DataFrame, path: str):
+    tmp = path + ".tmp"
+    df.to_csv(tmp, index=False, quoting=csv.QUOTE_ALL)
+    os.replace(tmp, path)  # atomic on POSIX
+
+# ----------------------------
+# Ollama call
+# ----------------------------
+def run_one(system: str, user: str, timeout: int = 600, max_retries: int = 4) -> str:
+    """
+    Calls /api/generate (NOT /api/chat).
+    Returns j["response"] (NOT message.content).
+    """
+    session = make_session()
+
     payload = {
         "model": MODEL,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
+        "prompt": f"{system}\n\n{user}",
         "stream": False,
         "options": {
             "temperature": 0,
-            "num_predict": 20,   # keep it short; we only want the number
-        },
+            # Keep output short for speed; we only need the rating line.
+            "num_predict": 40,
+            # Stop once Answer line is done (helps prevent rambling)
+            "stop": ["\n\n", "\r\n\r\n"]
+        }
     }
 
     for attempt in range(max_retries):
@@ -64,7 +87,7 @@ def run_one(system: str, user: str, timeout: int = 900, max_retries: int = 3) ->
             if r.status_code != 200:
                 raise RuntimeError(f"Ollama HTTP {r.status_code}: {r.text[:300]}")
             j = r.json()
-            return j["message"]["content"]
+            return j.get("response", "")
         except requests.exceptions.Timeout:
             time.sleep(min(10, 2 ** attempt + random.random()))
         except Exception:
@@ -73,15 +96,6 @@ def run_one(system: str, user: str, timeout: int = 900, max_retries: int = 3) ->
             time.sleep(min(10, 2 ** attempt + random.random()))
 
     raise RuntimeError("max_retries_exceeded")
-
-def ensure_ollama_up_or_die():
-    # If this fails, you're not using local ollama correctly
-    try:
-        r = session.get("http://127.0.0.1:11434/api/tags", timeout=10)
-        if r.status_code != 200:
-            raise RuntimeError(f"Ollama not ready: {r.status_code} {r.text[:200]}")
-    except Exception as e:
-        raise SystemExit(f"[FATAL] Local Ollama not reachable at 127.0.0.1:11434: {e}")
 
 # ----------------------------
 # Paths
@@ -94,100 +108,132 @@ def main():
     ensure_ollama_up_or_die()
     print(f"[OK] Using local Ollama model: {MODEL}")
 
-    # Load base
     base = pd.read_csv(in_path)
 
-    # Resume if out exists, but read robustly
+    # Resume if out exists
     if os.path.exists(out_path):
-        # if corruption is suspected, be strict:
         train = pd.read_csv(out_path, engine="python", on_bad_lines="error")
-        # Ensure required columns exist
+        # Ensure all base columns exist
         for col in base.columns:
             if col not in train.columns:
                 train[col] = base[col]
+        if "out_raw" not in train.columns:
+            train["out_raw"] = ""
+        if "rating" not in train.columns:
+            train["rating"] = pd.NA
     else:
         train = base.copy()
         train["out_raw"] = ""
         train["rating"] = pd.NA
 
-    # Define "done" robustly: rating is a valid int
-    done_mask = train["rating"].apply(lambda x: isinstance(x, (int, float)) and pd.notna(x))
+    # Determine which rows are truly done (rating is valid 0..100)
+    def is_done(x):
+        try:
+            if pd.isna(x):
+                return False
+            v = int(float(x))
+            return 0 <= v <= 100
+        except Exception:
+            return False
+
+    done_mask = train["rating"].apply(is_done)
     not_done_idx = train.index[~done_mask]
     start_idx = int(not_done_idx.min()) if len(not_done_idx) else len(train)
 
+    # ---- PROMPT (full text preserved) ----
     system_prompt = (
         "You are an expert in the academic literature on behavioral agent-based modeling (ABM). "
-        "You must output ONLY one line: Answer=[0-100]."
+        "Return your answer in the required format."
     )
 
     task_description = (
-        "Compare Article 1 and Article 2 based only on titles and abstracts. "
-        "Rate similarity of their specific ABM research topics on 0-100.\n"
-        "Return ONLY one line: Answer=[rating]"
+        "Your primary task is to compare the following two articles (Article 1 and Article 2) "
+        "based *only* on their provided titles and abstracts. Both articles operate within the "
+        "general field of behavioral agent-based modeling (ABM).\n\n"
+        "Your goal is to determine how similar their *specific research topics* are within the ABM context. "
+        "Do they investigate the same sub-problem, mechanism, or research question?"
     )
 
-    # Make prompts
-    pairs = [
-        "-- Article 1 --\n" + str(i) + "\n\n-- Article 2 --\n" + str(j)
-        for i, j in zip(train["text_i"].values, train["text_j"].values)
-    ]
+    # SPEED TIP: do NOT ask for reasoning if you don't need it
+    # (reasoning burns tokens/time).
+    format_instructions = (
+        "Provide ONLY the numerical rating line using the specified format.\n"
+        "Rate similarity on a scale from 0 to 100:\n"
+        "* 0: Completely different specific research topics within ABM.\n"
+        "* 50: Significant common ground but distinct specific research topics.\n"
+        "* 100: Same specific research topic within ABM.\n\n"
+        "Strictly format the rating line exactly like this:\n"
+        "Answer=[rating]"
+    )
 
-    prompts = [task_description + "\n\n" + p for p in pairs]
+    # Build prompts lazily (don’t store a massive list)
+    def build_user_prompt(idx: int) -> str:
+        pair = (
+            "-- Article 1 --\n" + str(train.at[idx, "text_i"]) +
+            "\n\n-- Article 2 --\n" + str(train.at[idx, "text_j"])
+        )
+        return f"{task_description}\n\nHere are the articles to evaluate:\n\n{pair}\n\n{format_instructions}"
 
-    batch_size = 25  # CPU-friendly
-
-    # open audit log in append mode
+    # ----------------------------
+    # Parallel batch processing
+    # ----------------------------
     os.makedirs(os.path.dirname(audit_path), exist_ok=True)
     audit_f = open(audit_path, "a", encoding="utf-8")
 
-    print(f"Total prompts: {len(prompts)}")
+    # On CPU Ollama, too many workers will *slow down* (contention).
+    # Good starting point: 2–4 workers.
+    workers = int(os.environ.get("OLLAMA_WORKERS", "3"))
+    batch_size = int(os.environ.get("BATCH_SIZE", "30"))
+
+    print(f"Total rows: {len(train)}")
     print(f"Already completed: {done_mask.sum()}")
     print(f"Starting at index: {start_idx}")
+    print(f"workers={workers} batch_size={batch_size}")
 
     try:
-        for begin in range(start_idx, len(prompts), batch_size):
-            end = min(begin + batch_size, len(prompts))
+        for begin in range(start_idx, len(train), batch_size):
+            end = min(begin + batch_size, len(train))
+            idxs = [i for i in range(begin, end) if not is_done(train.at[i, "rating"])]
+
+            if not idxs:
+                continue
+
             t0 = time.time()
 
-            for idx in range(begin, end):
-                raw = run_one(system_prompt, prompts[idx])
-                rating = extract_rating_or_die(raw)
+            users = [build_user_prompt(i) for i in idxs]
+            func = partial(run_one, system_prompt)
 
-                train.at[idx, "out_raw"] = raw
-                train.at[idx, "rating"] = int(rating)
+            # Run in parallel
+            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
+                results = list(ex.map(func, users))
 
-                # audit row-by-row so you can inspect problems
+            # Validate + write back
+            for i, raw in zip(idxs, results):
+                rating = extract_rating_or_die(raw)  # FAIL FAST here
+
+                train.at[i, "out_raw"] = raw
+                train.at[i, "rating"] = int(rating)
+
                 audit_f.write(json.dumps({
-                    "idx": int(idx),
-                    "i": int(train.at[idx, "i"]) if "i" in train.columns else None,
-                    "j": int(train.at[idx, "j"]) if "j" in train.columns else None,
+                    "row_idx": int(i),
+                    "i": int(train.at[i, "i"]) if "i" in train.columns else None,
+                    "j": int(train.at[i, "j"]) if "j" in train.columns else None,
                     "rating": int(rating),
                     "raw": raw,
                 }) + "\n")
-                audit_f.flush()
+            audit_f.flush()
 
-            # Write CSV safely after each batch
-            train.to_csv(out_path, index=False, quoting=csv.QUOTE_ALL)
+            # Atomic save prevents partial/corrupt CSV if job dies mid-write
+            atomic_write_csv(train, out_path)
 
             dt = time.time() - t0
-            print(f"Batch {begin//batch_size + 1}: {begin}..{end-1} in {dt:.2f}s")
+            print(f"Batch {begin//batch_size + 1}: rows {begin}..{end-1} done={len(idxs)} in {dt:.2f}s")
 
     finally:
         audit_f.close()
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
-
 
 
 # import os
