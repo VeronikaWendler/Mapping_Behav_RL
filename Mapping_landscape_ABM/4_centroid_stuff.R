@@ -478,9 +478,9 @@ generate_analytics <- function(data, labels_df, centroids) {
 # ==============================================================================
 
 main <- function() {
-  cat("=" * 60, "\n")
+  cat(strrep("=", 60), "\n")
   cat("OBJECTIVE CONTINENT DEFINITION FOR SCIENCE MAPS\n")
-  cat("=" * 60, "\n\n")
+  cat(strrep("=", 60), "\n\n")
   
   # Step 1: Cluster countries into continents
   cat("Step 1: Clustering countries into continents...\n")
@@ -561,6 +561,6 @@ if (interactive()) {
   htmlwidgets::saveWidget(interactive_plot, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/interactive_map.html")
 }
 
-cat("\n" + "=" * 60 + "\n")
+cat("\n", strrep("=", 60), "\n", sep="")
 cat("OBJECTIVE CONTINENT DEFINITION COMPLETE\n")
-cat("=" * 60 + "\n")
+cat(strrep("=", 60), "\n")
