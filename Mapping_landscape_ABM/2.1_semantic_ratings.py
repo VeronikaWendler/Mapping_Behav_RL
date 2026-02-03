@@ -7,24 +7,16 @@ import random
 import requests
 import concurrent.futures
 import pandas as pd
-from functools import partial
 
 # ----------------------------
-# Local Ollama
+# Ollama local
 # ----------------------------
 OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
-MODEL = "llama2:7b"
-
-# One session per thread is safest; requests.Session isn't perfectly thread-safe.
-def make_session():
-    s = requests.Session()
-    s.headers.update({"Content-Type": "application/json"})
-    return s
+MODEL = os.environ.get("OLLAMA_MODEL", "llama2:7b")
 
 # ----------------------------
-# Strict parsing / validation
+# Strict parsing
 # ----------------------------
-# We accept Answer=[n] where n is 0..100, and we FAIL if we can't find it.
 ANSWER_RE = re.compile(r"Answer=\[(\d{1,3})\]")
 
 def extract_rating_or_die(text: str) -> int:
@@ -34,7 +26,6 @@ def extract_rating_or_die(text: str) -> int:
     if not s:
         raise RuntimeError("Empty model response")
 
-    # Find the LAST occurrence of Answer=[...]
     matches = list(ANSWER_RE.finditer(s))
     if not matches:
         raise RuntimeError(f"Missing Answer=[n]. Got: {s[:200]}")
@@ -56,44 +47,39 @@ def ensure_ollama_up_or_die():
 def atomic_write_csv(df: pd.DataFrame, path: str):
     tmp = path + ".tmp"
     df.to_csv(tmp, index=False, quoting=csv.QUOTE_ALL)
-    os.replace(tmp, path)  # atomic on POSIX
+    os.replace(tmp, path)
 
-# ----------------------------
-# Ollama call
-# ----------------------------
-def run_one(system: str, user: str, timeout: int = 600, max_retries: int = 4) -> str:
+def run_one(prompt: str, num_threads: int, timeout: int, max_retries: int) -> str:
     """
-    Calls /api/generate (NOT /api/chat).
-    Returns j["response"] (NOT message.content).
+    /api/generate returns JSON with "response" field (NOT message.content).
     """
-    session = make_session()
-
     payload = {
         "model": MODEL,
-        "prompt": f"{system}\n\n{user}",
+        "prompt": prompt,
         "stream": False,
         "options": {
             "temperature": 0,
-            # Keep output short for speed; we only need the rating line.
-            "num_predict": 40,
-            # Stop once Answer line is done (helps prevent rambling)
+            "num_predict": 24,         # small output
+            "num_thread": num_threads, # use your allocated CPU cores
+            "num_ctx": 2048,           # smaller context = faster (still enough for 2 abstracts usually)
             "stop": ["\n\n", "\r\n\r\n"]
         }
     }
 
+    # one Session per call is fine; safest for threading (and cheap enough)
     for attempt in range(max_retries):
         try:
-            r = session.post(OLLAMA_URL, json=payload, timeout=timeout)
+            r = requests.post(OLLAMA_URL, json=payload, timeout=timeout)
             if r.status_code != 200:
                 raise RuntimeError(f"Ollama HTTP {r.status_code}: {r.text[:300]}")
             j = r.json()
             return j.get("response", "")
         except requests.exceptions.Timeout:
-            time.sleep(min(10, 2 ** attempt + random.random()))
+            time.sleep(min(5, 2 ** attempt + random.random()))
         except Exception:
             if attempt == max_retries - 1:
                 raise
-            time.sleep(min(10, 2 ** attempt + random.random()))
+            time.sleep(min(5, 2 ** attempt + random.random()))
 
     raise RuntimeError("max_retries_exceeded")
 
@@ -106,14 +92,15 @@ audit_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_tr
 
 def main():
     ensure_ollama_up_or_die()
-    print(f"[OK] Using local Ollama model: {MODEL}")
+    print(f"[OK] Using local Ollama model: {MODEL}", flush=True)
 
     base = pd.read_csv(in_path)
+    print(f"Total rows: {len(base)}", flush=True)
 
-    # Resume if out exists
+    # resume if exists
     if os.path.exists(out_path):
         train = pd.read_csv(out_path, engine="python", on_bad_lines="error")
-        # Ensure all base columns exist
+        # ensure columns exist
         for col in base.columns:
             if col not in train.columns:
                 train[col] = base[col]
@@ -126,7 +113,6 @@ def main():
         train["out_raw"] = ""
         train["rating"] = pd.NA
 
-    # Determine which rows are truly done (rating is valid 0..100)
     def is_done(x):
         try:
             if pd.isna(x):
@@ -137,80 +123,70 @@ def main():
             return False
 
     done_mask = train["rating"].apply(is_done)
-    not_done_idx = train.index[~done_mask]
-    start_idx = int(not_done_idx.min()) if len(not_done_idx) else len(train)
+    start_idx = int(train.index[~done_mask].min()) if (~done_mask).any() else len(train)
 
-    # ---- PROMPT (full text preserved) ----
-    system_prompt = (
-        "You are an expert in the academic literature on behavioral agent-based modeling (ABM). "
-        "Return your answer in the required format."
+    # ---- prompt (NO reasoning; reasoning is expensive) ----
+    system_header = (
+        "You are an expert in the academic literature on behavioral agent-based modeling (ABM).\n"
+        "Return ONLY one line in exactly this format: Answer=[0-100]\n"
+        "Do not output any other text."
     )
 
-    task_description = (
-        "Your primary task is to compare the following two articles (Article 1 and Article 2) "
-        "based *only* on their provided titles and abstracts. Both articles operate within the "
-        "general field of behavioral agent-based modeling (ABM).\n\n"
-        "Your goal is to determine how similar their *specific research topics* are within the ABM context. "
-        "Do they investigate the same sub-problem, mechanism, or research question?"
+    task = (
+        "Compare Article 1 and Article 2 based only on titles and abstracts.\n"
+        "Rate similarity of their specific ABM research topics on 0-100.\n"
+        "Return ONLY: Answer=[rating]"
     )
 
-    # SPEED TIP: do NOT ask for reasoning if you don't need it
-    # (reasoning burns tokens/time).
-    format_instructions = (
-        "Provide ONLY the numerical rating line using the specified format.\n"
-        "Rate similarity on a scale from 0 to 100:\n"
-        "* 0: Completely different specific research topics within ABM.\n"
-        "* 50: Significant common ground but distinct specific research topics.\n"
-        "* 100: Same specific research topic within ABM.\n\n"
-        "Strictly format the rating line exactly like this:\n"
-        "Answer=[rating]"
-    )
-
-    # Build prompts lazily (don’t store a massive list)
-    def build_user_prompt(idx: int) -> str:
+    def build_prompt(idx: int) -> str:
         pair = (
             "-- Article 1 --\n" + str(train.at[idx, "text_i"]) +
             "\n\n-- Article 2 --\n" + str(train.at[idx, "text_j"])
         )
-        return f"{task_description}\n\nHere are the articles to evaluate:\n\n{pair}\n\n{format_instructions}"
+        return f"{system_header}\n\n{task}\n\n{pair}\n"
 
     # ----------------------------
-    # Parallel batch processing
+    # Performance knobs
     # ----------------------------
+    # IMPORTANT: Ollama is effectively single-queue unless configured otherwise.
+    # Too many Python workers just creates a waiting line -> your clients time out.
+    workers = int(os.environ.get("OLLAMA_WORKERS", "1"))     # <-- default 1 (THIS FIXES YOUR TIMEOUTS)
+    batch_size = int(os.environ.get("BATCH_SIZE", "20"))     # smaller batch writes more often
+    num_threads = int(os.environ.get("OLLAMA_THREADS", os.environ.get("SLURM_CPUS_PER_TASK", "6")))
+
+    timeout = int(os.environ.get("OLLAMA_TIMEOUT", "1800"))  # 30 min per request (avoids abort loop)
+    max_retries = int(os.environ.get("OLLAMA_RETRIES", "2"))
+
+    print(f"Already completed: {done_mask.sum()}", flush=True)
+    print(f"Starting at index: {start_idx}", flush=True)
+    print(f"workers={workers} batch_size={batch_size} num_threads={num_threads}", flush=True)
+
     os.makedirs(os.path.dirname(audit_path), exist_ok=True)
     audit_f = open(audit_path, "a", encoding="utf-8")
-
-    # On CPU Ollama, too many workers will *slow down* (contention).
-    # Good starting point: 2–4 workers.
-    workers = int(os.environ.get("OLLAMA_WORKERS", "3"))
-    batch_size = int(os.environ.get("BATCH_SIZE", "30"))
-
-    print(f"Total rows: {len(train)}")
-    print(f"Already completed: {done_mask.sum()}")
-    print(f"Starting at index: {start_idx}")
-    print(f"workers={workers} batch_size={batch_size}")
 
     try:
         for begin in range(start_idx, len(train), batch_size):
             end = min(begin + batch_size, len(train))
             idxs = [i for i in range(begin, end) if not is_done(train.at[i, "rating"])]
-
             if not idxs:
                 continue
 
             t0 = time.time()
 
-            users = [build_user_prompt(i) for i in idxs]
-            func = partial(run_one, system_prompt)
+            prompts = [build_prompt(i) for i in idxs]
 
-            # Run in parallel
-            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
-                results = list(ex.map(func, users))
+            # run with limited parallelism (default 1)
+            def call(p):
+                return run_one(p, num_threads=num_threads, timeout=timeout, max_retries=max_retries)
 
-            # Validate + write back
-            for i, raw in zip(idxs, results):
-                rating = extract_rating_or_die(raw)  # FAIL FAST here
+            if workers == 1:
+                results = [call(p) for p in prompts]
+            else:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
+                    results = list(ex.map(call, prompts))
 
+            for k, (i, raw) in enumerate(zip(idxs, results), start=1):
+                rating = extract_rating_or_die(raw)
                 train.at[i, "out_raw"] = raw
                 train.at[i, "rating"] = int(rating)
 
@@ -219,21 +195,48 @@ def main():
                     "i": int(train.at[i, "i"]) if "i" in train.columns else None,
                     "j": int(train.at[i, "j"]) if "j" in train.columns else None,
                     "rating": int(rating),
-                    "raw": raw,
+                    "raw": raw[:500]  # keep audit smaller; full raw is in CSV
                 }) + "\n")
-            audit_f.flush()
 
-            # Atomic save prevents partial/corrupt CSV if job dies mid-write
+                # live progress so you don't think it's stuck
+                if (k % 5) == 0:
+                    print(f"progress: row {i} ({i+1}/{len(train)})", flush=True)
+
+            audit_f.flush()
             atomic_write_csv(train, out_path)
 
             dt = time.time() - t0
-            print(f"Batch {begin//batch_size + 1}: rows {begin}..{end-1} done={len(idxs)} in {dt:.2f}s")
+            print(f"Batch {begin//batch_size + 1}: rows {begin}..{end-1} done={len(idxs)} in {dt:.1f}s", flush=True)
 
     finally:
         audit_f.close()
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # import os
