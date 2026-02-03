@@ -511,7 +511,7 @@ main <- function() {
   map_plot <- create_objective_science_map(
     data_with_continents,
     labels_df,
-    output_file = "3_figures/objective_science_map.png"
+    output_file = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/objective_science_map.png"
   )
   
   # Step 4: Generate analytics
@@ -528,7 +528,7 @@ main <- function() {
               length(unique(data_with_continents$continent))))
   cat(sprintf("2. Mapped %d countries to continents\n", 
               length(unique(data_with_continents$country))))
-  cat(sprintf("3. Generated labeled map: 3_figures/objective_science_map.png\n"))
+  cat(sprintf("3. Generated labeled map: /rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/objective_science_map.png\n"))
   cat(sprintf("4. Saved analytics tables\n"))
   cat(sprintf("5. Saved updated data with objective continents\n"))
   
