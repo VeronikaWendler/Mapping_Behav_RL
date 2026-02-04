@@ -69,4 +69,4 @@ conda activate mapping_abm
 # fi
 
 cd ~/projects/Mapping_Behav_RL
-Rscript Mapping_landscape_ABM/4_centroid_stuff.R
+Rscript Mapping_landscape_ABM/6_map.R
