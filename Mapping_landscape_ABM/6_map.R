@@ -9,41 +9,133 @@ library(memnet)
 
 data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered_objective.RDS")
 
+
+if ("year" %in% colnames(data) && !"Year" %in% colnames(data)) {
+  data <- data %>% rename(Year = year)
+  cat("Renamed 'year' to 'Year'\n")
+} else if (!"Year" %in% colnames(data)) {
+  cat("Warning: No Year/year column found. Creating placeholder...\n")
+  data$Year <- NA_real_
+}
+
+
 set.seed(42)
 data = data |> mutate(lyt_x_jit = lyt_x + rnorm(n(), sd = .2), lyt_y_jit = lyt_y + rnorm(n(), sd = .2))
 
-png("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/1_cluster_map.png",
-    width = 8, height = 4.8, unit = "in", res = 300)
+png("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/1_cluster_map_improved.png",
+    width = 10, height = 6, unit = "in", res = 300)  # Slightly larger
 
+# 5 CONTINENTS
 continents = tibble(
   continent = 1:5, 
   order = c(1,2,3,4,5),
   number = c(1,2,3,4,5),
-  colors = viridis::mako(5, end = .8)[order],  # 5 colors
+  colors = viridis::mako(5, end = .8)[order],
   colors_white = memnet::cmix(colors, "white", .5),
   colors_white2 = memnet::cmix(colors, "white", .75))
 
-centroids = data %>% 
+continent_centroids = data %>% 
   group_by(continent) %>% 
-  summarize(lyt_x = mean(lyt_x),
-            lyt_y = mean(lyt_y)) %>% 
-  mutate(lab_x = lyt_x + c(-2, 2, -2, 2, 0)*1.5,
-         lab_y = lyt_y + c(2, 2, -2, -2, 3)*1.5, 
-         adj = c(1, 0, 1, 0, .5))  # Adjust label alignment
+  summarize(
+    lyt_x = mean(lyt_x),
+    lyt_y = mean(lyt_y),
+    .groups = "drop"
+  )
 
-# YOUR LABELS BASED ON FINDINGS
-continents = continents %>% left_join(centroids) %>% 
-  mutate(labels = c(
-    "Social Equity &\nPolicy Modeling",         # Region 1 (1545 papers)
-    "Business Networks &\nMarket Dynamics",     # Region 4 (1495 papers)  
-    "Collective Behavior &\nEmergent Systems",  # Region 3 (1456 papers)
-    "Norm Emergence &\nSocial Coordination",    # Region 2 (1353 papers)
-    "Transportation &\nEV Adoption"             # Region 5 (945 papers)
-  ))
+country_centroids = data %>% 
+  group_by(country, continent) %>% 
+  summarize(
+    lyt_x = mean(lyt_x),
+    lyt_y = mean(lyt_y),
+    n_papers = n(),
+    .groups = "drop"
+  ) %>% 
+  arrange(continent, desc(n_papers)) %>% 
+  group_by(continent) %>% 
+  mutate(
+    country_label = paste0(LETTERS[1:n()], ")"),  # A), B), C), etc.
+    country_num = 1:n()
+  )
 
-xlim = range(data$lyt_x) ; ylim = range(data$lyt_y)
+# SMART LABEL PLACEMENT - Avoid overlaps
+smart_label_positions <- function(centroids) {
+  positions <- centroids
+  placed <- logical(nrow(positions))
+  
+  # Start with largest clusters first
+  positions <- positions %>% arrange(desc(n_papers))
+  
+  for(i in 1:nrow(positions)) {
+    if(!placed[i]) {
+      # Try different positions around centroid
+      angles <- seq(0, 2*pi, length.out = 8)
+      distances <- seq(0.5, 3, by = 0.5)
+      
+      best_pos <- NULL
+      best_score <- -Inf
+      
+      for(dist in distances) {
+        for(angle in angles) {
+          test_x <- positions$lyt_x[i] + dist * cos(angle)
+          test_y <- positions$lyt_y[i] + dist * sin(angle)
+          
+          # Check distance to other labels
+          if(i > 1) {
+            dist_to_others <- sqrt((test_x - positions$lyt_x[1:(i-1)])^2 + 
+                                   (test_y - positions$lyt_y[1:(i-1)])^2)
+            min_dist <- min(dist_to_others, na.rm = TRUE)
+          } else {
+            min_dist <- Inf
+          }
+          
+          # Score: far from others but close to own centroid
+          score <- min_dist - dist*0.5
+          
+          if(score > best_score) {
+            best_score <- score
+            best_pos <- c(test_x, test_y)
+          }
+        }
+      }
+      
+      positions$lab_x[i] <- best_pos[1]
+      positions$lab_y[i] <- best_pos[2]
+      placed[i] <- TRUE
+    }
+  }
+  
+  return(positions)
+}
+
+# Apply smart placement to continents
+continent_labels <- continent_centroids %>% 
+  left_join(data %>% group_by(continent) %>% summarise(n_papers = n()), by = "continent") %>%
+  smart_label_positions() %>%
+  left_join(continents %>% select(continent, colors, number), by = "continent") %>%
+  mutate(
+    labels = c(
+      "Social Equity &\nPolicy",         # Smaller
+      "Business Networks &\nMarkets",    # Smaller  
+      "Collective Behavior &\nEmergence",# Smaller
+      "Norm Emergence &\nCoordination",  # Smaller
+      "Transportation &\nEV Adoption"    # Smaller
+    )
+  )
+
+continents <- continents %>%
+  left_join(
+    continent_labels %>% select(continent, lab_x, lab_y, adj = adj, labels),
+    by = "continent"
+  )
+
+continent_labels <- continent_labels %>% mutate(adj = 0.5)
+
+# PLOT
+xlim = range(data$lyt_x) 
+ylim = range(data$lyt_y)
 par(mar=c(0,0,0,0))
-plot.new();plot.window(xlim = xlim * c(1.1, 1.1), ylim = ylim * c(1, 1.2))
+plot.new()
+plot.window(xlim = xlim * c(1.1, 1.1), ylim = ylim * c(1.1, 1.2))
 
 # Loop through YOUR 5 continents
 for(i in 1:nrow(continents)){
@@ -106,16 +198,58 @@ for(i in 1:nrow(continents)){
   #text(mean(data_i$lyt_x), mean(data_i$lyt_y), label = i, font= 2, cex=2)
 }
 
-
-for(i in 1:nrow(continents)){
-   continents_i = continents %>% slice(i)
-   text(continents_i$lab_x, continents_i$lab_y, 
-       labels = paste0(continents_i$labels,"\n(",continents_i$number, ")"), 
-       cex = 1.2, adj = continents_i$adj,
-       col = continents_i$colors, font = 2)  # Bold font
+for(cont in 1:5) {
+  country_subset <- country_centroids %>% filter(continent == cont)
+  
+  # Only label countries with reasonable size
+  country_subset <- country_subset %>% filter(n_papers > 10)
+  
+  if(nrow(country_subset) > 0) {
+    # Small gray labels for countries
+    text(country_subset$lyt_x, country_subset$lyt_y,
+         labels = country_subset$country_label,
+         cex = 0.5, col = "gray40", font = 1)
+    
+    # Optional: tiny connecting line to label
+    for(j in 1:nrow(country_subset)) {
+      lines(c(country_subset$lyt_x[j], country_subset$lyt_x[j] + 0.1),
+            c(country_subset$lyt_y[j], country_subset$lyt_y[j] + 0.1),
+            col = "gray80", lwd = 0.5)
+    }
+  }
 }
 
 
+for(i in 1:nrow(continent_labels)) {
+  continent_i <- continent_labels %>% slice(i)
+  
+  # Draw connecting line from centroid to label
+  lines(c(continent_i$lyt_x, continent_i$lab_x),
+        c(continent_i$lyt_y, continent_i$lab_y),
+        col = continent_i$colors, lwd = 1, lty = 2)
+  
+  # Label with colored background (better readability)
+  rect(continent_i$lab_x - strwidth(continent_i$labels, cex = 0.9)/2 - 0.05,
+       continent_i$lab_y - strheight(continent_i$labels, cex = 0.9)/2 - 0.02,
+       continent_i$lab_x + strwidth(continent_i$labels, cex = 0.9)/2 + 0.05,
+       continent_i$lab_y + strheight(continent_i$labels, cex = 0.9)/2 + 0.02,
+       col = "white", border = NA)
+  
+  # Smaller font for labels
+  text(continent_i$lab_x, continent_i$lab_y,
+       labels = paste0(continent_i$labels, "\n(", continent_i$number, ")"),
+       cex = 0.9,  # SMALLER!
+       col = continent_i$colors,
+       font = 2)
+}
+
+
+
+legend("bottomright",
+       legend = c("A), B), C)... = Country clusters within continent"),
+       cex = 0.6,
+       bty = "n",
+       text.col = "gray40")
 
 # get_tags = function(x) (data$tags_clean[data$continent == x] |> unlist() |> table() |> sort(decreasing = T))[1:50] |> as.data.frame() |> cbind(continent = x) 
 # tag_dfs = lapply(1:10, function(x) get_tags(x)) |> do.call(what = bind_rows)
@@ -174,9 +308,9 @@ cat("Saved: /rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/cont
 
 cat("Creating publication timeline...\n")
 timeline <- data |> 
-  count(Year) |> 
-  mutate(n_exp = ifelse(Year == 2025, n * (12/5), n)) |> 
-  ggplot(aes(x = Year, y = n)) +
+  count(year) |> 
+  mutate(n_exp = ifelse(year == 2025, n * (12/5), n)) |> 
+  ggplot(aes(x = year, y = n)) +
   geom_line(aes(y = n_exp), col = "#0072B2", linewidth = 1) +
   geom_line(linewidth = 1) + 
   geom_point(aes(y = n_exp), col = "#0072B2", size = 2.5) +
@@ -198,20 +332,38 @@ cat("Saved: /rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/ABM_
 cat("Creating keyword highlight plots...\n")
 keywords_to_check <- c("agent-based", "emergence", "complexity", "simulation", "network")
 
-for(keyword in keywords_to_check) {
-  plot <- data |> 
-    mutate(hit = str_detect(tolower(Abstract_cleaned), keyword)) |> 
-    ggplot(aes(x = lyt_x, y = lyt_y)) + 
-    geom_point(data = . %>% filter(!hit), color = "gray90", alpha = 0.2, size = 0.5) +
-    geom_point(data = . %>% filter(hit), aes(color = factor(continent)), 
+for (keyword in keywords_to_check) {
+
+  d_kw <- data |>
+    mutate(
+      hit = str_detect(
+        tolower(replace_na(Abstract_cleaned, "")),
+        fixed(tolower(keyword))   # fixed() avoids regex issues with "-" etc.
+      )
+    )
+
+  n_hit <- sum(d_kw$hit, na.rm = TRUE)
+
+  p <- ggplot(d_kw, aes(x = lyt_x, y = lyt_y)) +
+    geom_point(data = d_kw |> filter(!hit), color = "gray90", alpha = 0.2, size = 0.5) +
+    geom_point(data = d_kw |> filter(hit), aes(color = factor(continent)),
                alpha = 0.8, size = 1) +
     scale_color_viridis_d(end = 0.8) +
     theme_void() +
-    labs(title = paste("Papers containing:", keyword),
-         subtitle = paste(sum(data$hit), "papers")) +
-    theme(legend.position = "none",
-          plot.title = element_text(hjust = 0.5, face = "bold"))
-  
-  ggsave(paste0("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/keyword_", gsub("-", "_", keyword), ".png"), 
-         plot, width = 8, height = 6, dpi = 300)
+    labs(
+      title = paste("Papers containing:", keyword),
+      subtitle = paste(n_hit, "papers")
+    ) +
+    theme(legend.position = "none")
+
+  ggsave(
+    filename = paste0(
+      "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/keyword_",
+      gsub("[^a-zA-Z0-9]+", "_", keyword),
+      ".png"
+    ),
+    plot = p,
+    width = 8, height = 6, dpi = 300
+  )
 }
+
