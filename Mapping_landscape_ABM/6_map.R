@@ -156,4 +156,62 @@ dev.off()
 # ggsave("3_figures/S_timeline.png", timeline, "png", dpi = 300, width = 8, height = 3.8)
 
 
+cat("Extracting top tags per continent...\n")
+get_tags <- function(continent_id) {
+  tags <- data$tags_clean[data$continent == continent_id] |> 
+    unlist() |> 
+    table() |> 
+    sort(decreasing = TRUE) |> 
+    head(50) |> 
+    as.data.frame()
+  cbind(continent = continent_id, tags)
+}
 
+tag_dfs <- lapply(1:5, get_tags) |> bind_rows()
+names(tag_dfs)[2:3] <- c("Tag", "Frequency")
+write_csv(tag_dfs, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/continent_tags.csv")
+cat("Saved: /rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/continent_tags.csv\n")
+
+cat("Creating publication timeline...\n")
+timeline <- data |> 
+  count(Year) |> 
+  mutate(n_exp = ifelse(Year == 2025, n * (12/5), n)) |> 
+  ggplot(aes(x = Year, y = n)) +
+  geom_line(aes(y = n_exp), col = "#0072B2", linewidth = 1) +
+  geom_line(linewidth = 1) + 
+  geom_point(aes(y = n_exp), col = "#0072B2", size = 2.5) +
+  geom_point(size = 2.5) + 
+  theme_minimal() +
+  labs(
+    title = "Growth of Agent-Based Modeling Literature",
+    y = "Number of Articles",
+    caption = "Blue: Expected annual total if current rate continues"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+ggsave("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/ABM_timeline.png", timeline, width = 10, height = 5, dpi = 300)
+cat("Saved: /rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/ABM_timeline.png\n")
+
+cat("Creating keyword highlight plots...\n")
+keywords_to_check <- c("agent-based", "emergence", "complexity", "simulation", "network")
+
+for(keyword in keywords_to_check) {
+  plot <- data |> 
+    mutate(hit = str_detect(tolower(Abstract_cleaned), keyword)) |> 
+    ggplot(aes(x = lyt_x, y = lyt_y)) + 
+    geom_point(data = . %>% filter(!hit), color = "gray90", alpha = 0.2, size = 0.5) +
+    geom_point(data = . %>% filter(hit), aes(color = factor(continent)), 
+               alpha = 0.8, size = 1) +
+    scale_color_viridis_d(end = 0.8) +
+    theme_void() +
+    labs(title = paste("Papers containing:", keyword),
+         subtitle = paste(sum(data$hit), "papers")) +
+    theme(legend.position = "none",
+          plot.title = element_text(hjust = 0.5, face = "bold"))
+  
+  ggsave(paste0("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/keyword_", gsub("-", "_", keyword), ".png"), 
+         plot, width = 8, height = 6, dpi = 300)
+}
