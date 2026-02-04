@@ -1,352 +1,350 @@
 require(tidyverse)
 require(remotes)
+require(concaveman)
+require(viridis)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
+
 if (!requireNamespace("memnet", quietly = TRUE)) {
   remotes::install_github("dwulff/memnet")
 }
 library(memnet)
 
+# ---------------------------
+# Load data
+# ---------------------------
+data <- readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered_objective.RDS")
 
-data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered_objective.RDS")
-
-
-if ("year" %in% colnames(data) && !"Year" %in% colnames(data)) {
-  data <- data %>% rename(Year = year)
-  cat("Renamed 'year' to 'Year'\n")
-} else if (!"Year" %in% colnames(data)) {
-  cat("Warning: No Year/year column found. Creating placeholder...\n")
-  data$Year <- NA_real_
+# Standardize year column to "year"
+if (!"year" %in% names(data) && "Year" %in% names(data)) {
+  data <- data %>% rename(year = Year)
+}
+if (!"year" %in% names(data)) {
+  data$year <- NA_integer_
 }
 
+# Basic sanity checks
+needed_cols <- c("lyt_x", "lyt_y", "continent", "country", "Abstract_cleaned")
+missing_cols <- setdiff(needed_cols, names(data))
+if (length(missing_cols) > 0) {
+  stop("Missing required columns in data: ", paste(missing_cols, collapse = ", "))
+}
 
+# jitter for plotting points
 set.seed(42)
-data = data |> mutate(lyt_x_jit = lyt_x + rnorm(n(), sd = .2), lyt_y_jit = lyt_y + rnorm(n(), sd = .2))
-
-png("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/1_cluster_map_improved.png",
-    width = 10, height = 6, unit = "in", res = 300)  # Slightly larger
-
-# 5 CONTINENTS
-continents = tibble(
-  continent = 1:5, 
-  order = c(1,2,3,4,5),
-  number = c(1,2,3,4,5),
-  colors = viridis::mako(5, end = .8)[order],
-  colors_white = memnet::cmix(colors, "white", .5),
-  colors_white2 = memnet::cmix(colors, "white", .75))
-
-continent_centroids = data %>% 
-  group_by(continent) %>% 
-  summarize(
-    lyt_x = mean(lyt_x),
-    lyt_y = mean(lyt_y),
-    .groups = "drop"
+data <- data %>%
+  mutate(
+    lyt_x_jit = lyt_x + rnorm(n(), sd = .2),
+    lyt_y_jit = lyt_y + rnorm(n(), sd = .2)
   )
 
-country_centroids = data %>% 
-  group_by(country, continent) %>% 
-  summarize(
-    lyt_x = mean(lyt_x),
-    lyt_y = mean(lyt_y),
+# ---------------------------
+# Define 5 continents palette etc.
+# ---------------------------
+continents <- tibble(
+  continent = 1:5,
+  order = 1:5,
+  number = 1:5,
+  colors = viridis::mako(5, end = .8)[order]
+) %>%
+  mutate(
+    colors_white  = memnet::cmix(colors, "white", .5),
+    colors_white2 = memnet::cmix(colors, "white", .75)
+  )
+
+# ---------------------------
+# Centroids (continent + country)
+# ---------------------------
+continent_centroids <- data %>%
+  group_by(continent) %>%
+  summarise(
+    lyt_x = mean(lyt_x, na.rm = TRUE),
+    lyt_y = mean(lyt_y, na.rm = TRUE),
     n_papers = n(),
     .groups = "drop"
-  ) %>% 
-  arrange(continent, desc(n_papers)) %>% 
-  group_by(continent) %>% 
-  mutate(
-    country_label = paste0(LETTERS[1:n()], ")"),  # A), B), C), etc.
-    country_num = 1:n()
   )
 
-# SMART LABEL PLACEMENT - Avoid overlaps
-smart_label_positions <- function(centroids) {
-  positions <- centroids
-  placed <- logical(nrow(positions))
-  
-  # Start with largest clusters first
-  positions <- positions %>% arrange(desc(n_papers))
-  
-  for(i in 1:nrow(positions)) {
-    if(!placed[i]) {
-      # Try different positions around centroid
-      angles <- seq(0, 2*pi, length.out = 8)
-      distances <- seq(0.5, 3, by = 0.5)
-      
-      best_pos <- NULL
-      best_score <- -Inf
-      
-      for(dist in distances) {
-        for(angle in angles) {
-          test_x <- positions$lyt_x[i] + dist * cos(angle)
-          test_y <- positions$lyt_y[i] + dist * sin(angle)
-          
-          # Check distance to other labels
-          if(i > 1) {
-            dist_to_others <- sqrt((test_x - positions$lyt_x[1:(i-1)])^2 + 
-                                   (test_y - positions$lyt_y[1:(i-1)])^2)
-            min_dist <- min(dist_to_others, na.rm = TRUE)
+country_centroids <- data %>%
+  group_by(continent, country) %>%
+  summarise(
+    lyt_x = mean(lyt_x, na.rm = TRUE),
+    lyt_y = mean(lyt_y, na.rm = TRUE),
+    n_papers = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(continent, desc(n_papers)) %>%
+  group_by(continent) %>%
+  mutate(
+    country_label = paste0(LETTERS[row_number()], ")"),
+    country_num = row_number()
+  ) %>%
+  ungroup()
+
+# ---------------------------
+# Smart label placement (creates lab_x/lab_y)
+# ---------------------------
+smart_label_positions <- function(df) {
+  df <- df %>% mutate(lab_x = NA_real_, lab_y = NA_real_)
+  df <- df %>% arrange(desc(n_papers))
+
+  for (i in 1:nrow(df)) {
+    angles <- seq(0, 2*pi, length.out = 8)
+    distances <- seq(0.5, 3, by = 0.5)
+
+    best_pos <- c(df$lyt_x[i], df$lyt_y[i])
+    best_score <- -Inf
+
+    for (dist in distances) {
+      for (ang in angles) {
+        tx <- df$lyt_x[i] + dist * cos(ang)
+        ty <- df$lyt_y[i] + dist * sin(ang)
+
+        if (i > 1) {
+          prev <- df[1:(i-1), ]
+          ok <- !(is.na(prev$lab_x) | is.na(prev$lab_y))
+          if (any(ok)) {
+            d_to_others <- sqrt((tx - prev$lab_x[ok])^2 + (ty - prev$lab_y[ok])^2)
+            min_dist <- min(d_to_others, na.rm = TRUE)
           } else {
             min_dist <- Inf
           }
-          
-          # Score: far from others but close to own centroid
-          score <- min_dist - dist*0.5
-          
-          if(score > best_score) {
-            best_score <- score
-            best_pos <- c(test_x, test_y)
-          }
+        } else {
+          min_dist <- Inf
+        }
+
+        score <- min_dist - dist * 0.5
+        if (score > best_score) {
+          best_score <- score
+          best_pos <- c(tx, ty)
         }
       }
-      
-      positions$lab_x[i] <- best_pos[1]
-      positions$lab_y[i] <- best_pos[2]
-      placed[i] <- TRUE
     }
+
+    df$lab_x[i] <- best_pos[1]
+    df$lab_y[i] <- best_pos[2]
   }
-  
-  return(positions)
+
+  df
 }
 
-# Apply smart placement to continents
-continent_labels <- continent_centroids %>% 
-  left_join(data %>% group_by(continent) %>% summarise(n_papers = n()), by = "continent") %>%
+# ---------------------------
+# Your continent labels (EDIT THESE if you want)
+# ---------------------------
+continent_labels <- continent_centroids %>%
   smart_label_positions() %>%
   left_join(continents %>% select(continent, colors, number), by = "continent") %>%
   mutate(
+    adj = 0.5,  # used by base::text()
     labels = c(
-      "Social Equity &\nPolicy",         # Smaller
-      "Business Networks &\nMarkets",    # Smaller  
-      "Collective Behavior &\nEmergence",# Smaller
-      "Norm Emergence &\nCoordination",  # Smaller
-      "Transportation &\nEV Adoption"    # Smaller
+      "Social Equity &\nPolicy",
+      "Business Networks &\nMarkets",
+      "Collective Behavior &\nEmergence",
+      "Norm Emergence &\nCoordination",
+      "Transportation &\nEV Adoption"
     )
   )
 
+# Join label positions into continents (for consistent access)
 continents <- continents %>%
-  left_join(
-    continent_labels %>% select(continent, lab_x, lab_y, adj = adj, labels),
-    by = "continent"
-  )
+  left_join(continent_labels %>% select(continent, lab_x, lab_y, adj, labels),
+            by = "continent")
 
-continent_labels <- continent_labels %>% mutate(adj = 0.5)
+# ---------------------------
+# Plot: map
+# ---------------------------
+out_map <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/1_cluster_map_improved.png"
+png(out_map, width = 10, height = 6, unit = "in", res = 300)
 
-# PLOT
-xlim = range(data$lyt_x) 
-ylim = range(data$lyt_y)
-par(mar=c(0,0,0,0))
+xlim <- range(data$lyt_x, na.rm = TRUE)
+ylim <- range(data$lyt_y, na.rm = TRUE)
+
+par(mar = c(0,0,0,0))
 plot.new()
 plot.window(xlim = xlim * c(1.1, 1.1), ylim = ylim * c(1.1, 1.2))
 
-# Loop through YOUR 5 continents
-for(i in 1:nrow(continents)){
-  
-  data_i = data %>% 
-    filter(continent == i) %>% 
-    mutate(lyt_x = lyt_x + runif(n(), -.3, .3),
-           lyt_y = lyt_y + runif(n(), -.3, .3))
-  
-  hull = concaveman::concaveman(cbind(data_i$lyt_x, data_i$lyt_y), concavity = 2,
-                                length_threshold = 2)
-  hull[,1] = round(round(hull[,1]*2, 1)/2, 2)
-  hull[,2] = round(round(hull[,2]*2, 1)/2, 2)
+for (i in 1:nrow(continents)) {
 
-  rx = range(hull[,1])
-  ry = range(hull[,2])
-  grid = expand.grid(x = seq(rx[1],rx[2],.05) %>% round(2),
-                     y = seq(ry[1],ry[2],.05) %>% round(2)) %>%
-    as.matrix()
-  index = expand.grid(xi = 1:length(seq(rx[1],rx[2],.05)),
-                      yi = 1:length(seq(ry[1],ry[2],.05))) %>%
-    as.matrix()
-  points = matrix(nrow = nrow(grid), ncol = 2, dimnames=list(NULL, c("in","cntry")))
-  for(k in 1:nrow(grid)){
-    pt = grid[k,]
-    points[k,1] = pnpoly(pt, hull)
-    dists = sqrt((data_i$lyt_x - pt[1])**2 + (data_i$lyt_y - pt[2])**2)
-    points[k,2] = data_i$country[which.min(dists)]
+  data_i <- data %>%
+    filter(continent == i) %>%
+    mutate(
+      lyt_x = lyt_x + runif(n(), -.3, .3),
+      lyt_y = lyt_y + runif(n(), -.3, .3)
+    )
+
+  if (nrow(data_i) < 3) next
+
+  hull <- concaveman::concaveman(cbind(data_i$lyt_x, data_i$lyt_y),
+                                 concavity = 2, length_threshold = 2)
+
+  hull[,1] <- round(round(hull[,1]*2, 1)/2, 2)
+  hull[,2] <- round(round(hull[,2]*2, 1)/2, 2)
+
+  rx <- range(hull[,1]); ry <- range(hull[,2])
+
+  grid <- expand.grid(
+    x = seq(rx[1], rx[2], .05) %>% round(2),
+    y = seq(ry[1], ry[2], .05) %>% round(2)
+  ) %>% as.matrix()
+
+  index <- expand.grid(
+    xi = 1:length(seq(rx[1], rx[2], .05)),
+    yi = 1:length(seq(ry[1], ry[2], .05))
+  ) %>% as.matrix()
+
+  pts <- matrix(nrow = nrow(grid), ncol = 2, dimnames = list(NULL, c("in","cntry")))
+  for (k in 1:nrow(grid)) {
+    pt <- grid[k,]
+    pts[k,1] <- pnpoly(pt, hull)
+    dists <- sqrt((data_i$lyt_x - pt[1])^2 + (data_i$lyt_y - pt[2])^2)
+    pts[k,2] <- data_i$country[which.min(dists)]
   }
-  points = cbind(index, cbind(grid, points))
-  points = points[points[,"in"] > 0,]
 
-  uni_countries = unique(data_i$country)
-  col = continents$colors_white2[data_i$continent[1]]
+  pts <- cbind(index, cbind(grid, pts))
+  pts <- pts[pts[,"in"] > 0, , drop = FALSE]
 
-  for(j in 1:length(uni_countries)){
-    points_cntry = points[points[,"cntry"] == uni_countries[j],c("x", "y")]
+  uni_countries <- unique(data_i$country)
+  col_fill <- continents$colors_white2[i]
 
-    border = sums = c()
-    for(k in 1:nrow(points_cntry)){
-      pt = points_cntry[k,c("x","y")]
-      dists = (abs(points_cntry[,"x"] - pt[1]) + abs(points_cntry[,"y"] - pt[2])) / 2
-      border[k] = ifelse(sum(round(dists,2) == .05) == 8, 0, 1)
+  for (j in seq_along(uni_countries)) {
+    pts_cntry <- pts[pts[,"cntry"] == uni_countries[j], c("x","y"), drop = FALSE]
+    if (nrow(pts_cntry) == 0) next
+
+    border <- rep(0, nrow(pts_cntry))
+    for (k in 1:nrow(pts_cntry)) {
+      pt <- pts_cntry[k,]
+      dists <- (abs(pts_cntry[,"x"] - pt[1]) + abs(pts_cntry[,"y"] - pt[2])) / 2
+      border[k] <- ifelse(sum(round(dists,2) == .05) == 8, 0, 1)
     }
 
-    w = .05
-    rect(points_cntry[,1] - w/2, points_cntry[,2] - w/2,
-         points_cntry[,1] + w/2, points_cntry[,2] + w/2,
-         col = ifelse(border, "white", col),
-         #col = ifelse(border, "black", NA),
+    w <- .05
+    rect(pts_cntry[,1] - w/2, pts_cntry[,2] - w/2,
+         pts_cntry[,1] + w/2, pts_cntry[,2] + w/2,
+         col = ifelse(border == 1, "white", col_fill),
          border = NA)
   }
-  
-  points(data_i$lyt_x_jit,
-         data_i$lyt_y_jit,
-         bg = continents$colors[data_i$continent],
-         col = continents$colors_white[data_i$continent],
-         pch = 21, cex=.2, lwd=.1)
-  
-  #text(mean(data_i$lyt_x), mean(data_i$lyt_y), label = i, font= 2, cex=2)
+
+  points(
+    data_i$lyt_x_jit,
+    data_i$lyt_y_jit,
+    bg  = continents$colors[i],
+    col = continents$colors_white[i],
+    pch = 21, cex = .2, lwd = .1
+  )
 }
 
-for(cont in 1:5) {
-  country_subset <- country_centroids %>% filter(continent == cont)
-  
-  # Only label countries with reasonable size
-  country_subset <- country_subset %>% filter(n_papers > 10)
-  
-  if(nrow(country_subset) > 0) {
-    # Small gray labels for countries
-    text(country_subset$lyt_x, country_subset$lyt_y,
-         labels = country_subset$country_label,
-         cex = 0.5, col = "gray40", font = 1)
-    
-    # Optional: tiny connecting line to label
-    for(j in 1:nrow(country_subset)) {
-      lines(c(country_subset$lyt_x[j], country_subset$lyt_x[j] + 0.1),
-            c(country_subset$lyt_y[j], country_subset$lyt_y[j] + 0.1),
-            col = "gray80", lwd = 0.5)
-    }
-  }
+# Country letter labels (only for bigger country clusters)
+for (cont in 1:5) {
+  country_subset <- country_centroids %>% filter(continent == cont, n_papers > 10)
+  if (nrow(country_subset) == 0) next
+
+  text(country_subset$lyt_x, country_subset$lyt_y,
+       labels = country_subset$country_label,
+       cex = 0.5, col = "gray40", font = 1)
 }
 
+# Continent labels + connector lines
+for (i in 1:nrow(continent_labels)) {
+  ci <- continent_labels %>% slice(i)
 
-for(i in 1:nrow(continent_labels)) {
-  continent_i <- continent_labels %>% slice(i)
-  
-  # Draw connecting line from centroid to label
-  lines(c(continent_i$lyt_x, continent_i$lab_x),
-        c(continent_i$lyt_y, continent_i$lab_y),
-        col = continent_i$colors, lwd = 1, lty = 2)
-  
-  # Label with colored background (better readability)
-  rect(continent_i$lab_x - strwidth(continent_i$labels, cex = 0.9)/2 - 0.05,
-       continent_i$lab_y - strheight(continent_i$labels, cex = 0.9)/2 - 0.02,
-       continent_i$lab_x + strwidth(continent_i$labels, cex = 0.9)/2 + 0.05,
-       continent_i$lab_y + strheight(continent_i$labels, cex = 0.9)/2 + 0.02,
+  lines(c(ci$lyt_x, ci$lab_x), c(ci$lyt_y, ci$lab_y),
+        col = ci$colors, lwd = 1, lty = 2)
+
+  rect(ci$lab_x - strwidth(ci$labels, cex = 0.9)/2 - 0.05,
+       ci$lab_y - strheight(ci$labels, cex = 0.9)/2 - 0.02,
+       ci$lab_x + strwidth(ci$labels, cex = 0.9)/2 + 0.05,
+       ci$lab_y + strheight(ci$labels, cex = 0.9)/2 + 0.02,
        col = "white", border = NA)
-  
-  # Smaller font for labels
-  text(continent_i$lab_x, continent_i$lab_y,
-       labels = paste0(continent_i$labels, "\n(", continent_i$number, ")"),
-       cex = 0.9,  # SMALLER!
-       col = continent_i$colors,
+
+  text(ci$lab_x, ci$lab_y,
+       labels = paste0(ci$labels, "\n(", ci$number, ")"),
+       cex = 0.9,
+       col = ci$colors,
        font = 2)
 }
 
-
-
 legend("bottomright",
-       legend = c("A), B), C)... = Country clusters within continent"),
-       cex = 0.6,
-       bty = "n",
-       text.col = "gray40")
-
-# get_tags = function(x) (data$tags_clean[data$continent == x] |> unlist() |> table() |> sort(decreasing = T))[1:50] |> as.data.frame() |> cbind(continent = x) 
-# tag_dfs = lapply(1:10, function(x) get_tags(x)) |> do.call(what = bind_rows)
-# names(tag_dfs)[1] = c("Tag")
-# write_csv(tag_dfs, "~/Downloads/tags.csv")
+       legend = c("A), B), C)... = country clusters within continent"),
+       cex = 0.6, bty = "n", text.col = "gray40")
 
 dev.off()
+cat("Saved map:", out_map, "\n")
 
+# ---------------------------
+# Export top tags per continent (if tags_clean exists)
+# ---------------------------
+if ("tags_clean" %in% names(data)) {
+  cat("Extracting top tags per continent...\n")
 
-# ggplot(continents, aes(x = lyt_x, y = lyt_y, label = number)) + 
-#   geom_text()
-# 
-# 
-# d = data |> 
-#   mutate(hit = str_detect(Abstract_cleaned, "uncertainty")) 
-# d |> 
-#   ggplot(aes(x = lyt_x, y = lyt_y)) + 
-#   geom_point(data = d |> filter(continent != 9), col = "black") +
-#   geom_point(data = d |> filter(continent == 9), fill = "red", pch = 21, col = "white", size=4) +
-#   theme_minimal()
-# 
-# 
-# timeline = data |> 
-#   count(Year) |> 
-#   mutate(n_exp = ifelse(Year == 2025, n * (12/5), n)) |> 
-#   ggplot(aes(x = Year, y = n)) +
-#   geom_line(aes(x = Year, y = n_exp), col = "deeppink2",linewidth = .8) +
-#   geom_line(linewidth = .8) + 
-#   geom_point(aes(x = Year, y = n_exp), col = "deeppink2", size = 2) +
-#   geom_point(size = 2) + 
-#   ylim(c(0, 500)) + 
-#   theme_minimal() + 
-#   labs(y = "Number of articles") + 
-#   scale_x_continuous(breaks = c(seq(1970, 2020, 10), 2025), limits = c(1970, 2030)) +
-#   annotate("text", x = 2026, y = 160, label = "Until\nMarch\n2025", hjust = 0) +
-#   annotate("text", x = 2026, y = 400, label = "Expected", hjust = 0, col = "deeppink2") 
-# 
-# ggsave("3_figures/S_timeline.png", timeline, "png", dpi = 300, width = 8, height = 3.8)
+  get_tags <- function(continent_id) {
+    tt <- data$tags_clean[data$continent == continent_id] %>%
+      unlist() %>%
+      table() %>%
+      sort(decreasing = TRUE) %>%
+      head(50) %>%
+      as.data.frame()
 
+    out <- cbind(continent = continent_id, tt)
+    names(out)[2:3] <- c("Tag", "Frequency")
+    out
+  }
 
-cat("Extracting top tags per continent...\n")
-get_tags <- function(continent_id) {
-  tags <- data$tags_clean[data$continent == continent_id] |> 
-    unlist() |> 
-    table() |> 
-    sort(decreasing = TRUE) |> 
-    head(50) |> 
-    as.data.frame()
-  cbind(continent = continent_id, tags)
+  tag_dfs <- lapply(1:5, get_tags) %>% bind_rows()
+  write_csv(tag_dfs, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/continent_tags.csv")
+  cat("Saved continent tags CSV.\n")
+} else {
+  cat("Note: data has no tags_clean column, skipping tag export.\n")
 }
 
-tag_dfs <- lapply(1:5, get_tags) |> bind_rows()
-names(tag_dfs)[2:3] <- c("Tag", "Frequency")
-write_csv(tag_dfs, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/continent_tags.csv")
-cat("Saved: /rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/continent_tags.csv\n")
-
+# ---------------------------
+# Timeline (uses data$year)
+# ---------------------------
 cat("Creating publication timeline...\n")
-timeline <- data |> 
-  count(year) |> 
-  mutate(n_exp = ifelse(year == 2025, n * (12/5), n)) |> 
+timeline <- data %>%
+  filter(!is.na(year)) %>%
+  count(year) %>%
+  mutate(n_exp = ifelse(year == 2025, n * (12/5), n)) %>%
   ggplot(aes(x = year, y = n)) +
-  geom_line(aes(y = n_exp), col = "#0072B2", linewidth = 1) +
-  geom_line(linewidth = 1) + 
-  geom_point(aes(y = n_exp), col = "#0072B2", size = 2.5) +
-  geom_point(size = 2.5) + 
+  geom_line(aes(y = n_exp), linewidth = 1) +
+  geom_line(linewidth = 1) +
+  geom_point(aes(y = n_exp), size = 2.5) +
+  geom_point(size = 2.5) +
   theme_minimal() +
   labs(
-    title = "Growth of Agent-Based Modeling Literature",
+    title = "Growth of ABM Literature (Your Corpus)",
     y = "Number of Articles",
-    caption = "Blue: Expected annual total if current rate continues"
+    caption = "Expected = annualized count for partial year"
   ) +
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold"),
     panel.grid.minor = element_blank()
   )
 
-ggsave("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/ABM_timeline.png", timeline, width = 10, height = 5, dpi = 300)
-cat("Saved: /rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/ABM_timeline.png\n")
+ggsave(
+  "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/ABM_timeline.png",
+  timeline, width = 10, height = 5, dpi = 300
+)
+cat("Saved timeline plot.\n")
 
+# ---------------------------
+# Keyword highlight plots
+# ---------------------------
 cat("Creating keyword highlight plots...\n")
 keywords_to_check <- c("agent-based", "emergence", "complexity", "simulation", "network")
 
 for (keyword in keywords_to_check) {
 
-  d_kw <- data |>
+  d_kw <- data %>%
     mutate(
       hit = str_detect(
         tolower(replace_na(Abstract_cleaned, "")),
-        fixed(tolower(keyword))   # fixed() avoids regex issues with "-" etc.
+        fixed(tolower(keyword))
       )
     )
 
   n_hit <- sum(d_kw$hit, na.rm = TRUE)
 
   p <- ggplot(d_kw, aes(x = lyt_x, y = lyt_y)) +
-    geom_point(data = d_kw |> filter(!hit), color = "gray90", alpha = 0.2, size = 0.5) +
-    geom_point(data = d_kw |> filter(hit), aes(color = factor(continent)),
+    geom_point(data = d_kw %>% filter(!hit), color = "gray90", alpha = 0.2, size = 0.5) +
+    geom_point(data = d_kw %>% filter(hit), aes(color = factor(continent)),
                alpha = 0.8, size = 1) +
     scale_color_viridis_d(end = 0.8) +
     theme_void() +
@@ -367,3 +365,4 @@ for (keyword in keywords_to_check) {
   )
 }
 
+cat("Done.\n")
