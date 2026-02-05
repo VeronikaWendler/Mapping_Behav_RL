@@ -2,6 +2,9 @@ require(tidyverse)
 require(remotes)
 require(concaveman)
 require(viridis)
+require(tidyr)
+require(stringr)
+require(tidytext)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
 if (!requireNamespace("memnet", quietly = TRUE)) {
