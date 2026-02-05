@@ -5,9 +5,9 @@ import time
 import re
 from pathlib import Path
 
-INPUT_CSV = r"D:/Birmingham_Uni_Oct25/Papers/Mapping_Behav_RL/Mapping_landscape_ABM/Data/data_cleaned_filtered_4_300.csv"
-OUTPUT_CSV = r"D:/Birmingham_Uni_Oct25/Papers/Mapping_Behav_RL/Mapping_landscape_ABM/Data/data_cleaned_filtered_4_300_YE.csv"
-CACHE_CSV = r"D:/Birmingham_Uni_Oct25/Papers/Mapping_Behav_RL/Mapping_landscape_ABM/Data/data_cleaned_filtered_4_300_YE_cache.csv"
+INPUT_CSV = r"/rds/homes/v/vaw508/projects/Mapping_Behav_RL/Mapping_landscape_ABM/Data/data_cleaned_filtered_4_300.csv"
+OUTPUT_CSV = r"/rds/homes/v/vaw508/projects/Mapping_Behav_RL/Mapping_landscape_ABM/Data/data_cleaned_filtered_4_300_YE.csv"
+CACHE_CSV = r"/rds/homes/v/vaw508/projects/Mapping_Behav_RL/Mapping_landscape_ABM/Data/data_cleaned_filtered_4_300_YE_cache.csv"
 
 def norm_doi(x):
     if not isinstance(x, str):
