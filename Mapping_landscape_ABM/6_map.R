@@ -5,6 +5,7 @@ require(viridis)
 require(tidyr)
 require(stringr)
 require(tidytext)
+
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
 if (!requireNamespace("memnet", quietly = TRUE)) {
@@ -41,9 +42,9 @@ country_tag_tfidf <- tags_long %>%
 # Build a short label per country cluster: top 2–3 tags by tf-idf
 country_names <- country_tag_tfidf %>%
   group_by(country) %>%
-  slice_head(n = 3) %>%
+  slice_max(tf_idf, n = 3, with_ties = FALSE) %>%
   summarise(
-    country_name = paste(term, collapse = " / "),
+    country_name = paste(tags_clean, collapse = " / "),
     .groups = "drop"
   )
 
