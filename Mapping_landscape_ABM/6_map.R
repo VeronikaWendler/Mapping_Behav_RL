@@ -14,7 +14,26 @@ library(memnet)
 # ---------------------------
 data <- readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered_objective.RDS")
 
-# Standardize year column to "year"
+cat("nrow:", nrow(data), " ncol:", ncol(data), "\n")
+print(names(data))
+
+cat("Has year:", "year" %in% names(data), "\n")
+cat("Has Year:", "Year" %in% names(data), "\n")
+year_like <- grep("year|Year|PY|pub|date|Date", names(data), value = TRUE)
+print(year_like)
+
+if ("year" %in% names(data)) {
+  cat("year class:", class(data$year), "\n")
+  cat("year NA%:", mean(is.na(data$year)) * 100, "\n")
+  print(summary(data$year))
+  print(sort(unique(data$year))[1:20])
+}
+if ("Year" %in% names(data)) {
+  cat("Year class:", class(data$Year), "\n")
+  cat("Year NA%:", mean(is.na(data$Year)) * 100, "\n")
+  print(summary(data$Year))
+}
+
 if (!"year" %in% names(data) && "Year" %in% names(data)) {
   data <- data %>% rename(year = Year)
 }
