@@ -14,6 +14,37 @@ library(memnet)
 # ---------------------------
 data <- readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered_objective.RDS")
 
+stopifnot("tags_clean" %in% names(data))
+
+generic_terms <- c(
+  "Agent-Based Modeling", "Agent-based model", "Agent-based modeling",
+  "ABM", "Simulation", "Modeling"
+)
+
+# Turn list-column tags_clean into long format: one row per (paper, country, tag)
+tags_long <- data %>%
+  select(country, continent, tags_clean) %>%
+  tidyr::unnest(tags_clean) %>%
+  mutate(tags_clean = stringr::str_squish(tags_clean)) %>%
+  filter(!is.na(tags_clean), tags_clean != "") %>%
+  filter(!tags_clean %in% generic_terms)
+
+# TF-IDF per country cluster (across the whole dataset)
+country_tag_tfidf <- tags_long %>%
+  count(country, tags_clean, sort = FALSE) %>%
+  bind_tf_idf(term = tags_clean, document = country, n = n) %>%
+  arrange(country, desc(tf_idf))
+
+# Build a short label per country cluster: top 2–3 tags by tf-idf
+country_names <- country_tag_tfidf %>%
+  group_by(country) %>%
+  slice_head(n = 3) %>%
+  summarise(
+    country_name = paste(term, collapse = " / "),
+    .groups = "drop"
+  )
+
+
 cat("nrow:", nrow(data), " ncol:", ncol(data), "\n")
 print(names(data))
 
@@ -90,13 +121,10 @@ country_centroids <- data %>%
     n_papers = n(),
     .groups = "drop"
   ) %>%
-  arrange(continent, desc(n_papers)) %>%
-  group_by(continent) %>%
+  left_join(country_names, by = "country") %>%
   mutate(
-    country_label = paste0(LETTERS[row_number()], ")"),
-    country_num = row_number()
-  ) %>%
-  ungroup()
+    country_name = ifelse(is.na(country_name), paste0("Cluster ", country), country_name)
+  )
 
 # ---------------------------
 # Smart label placement (creates lab_x/lab_y)
@@ -256,8 +284,8 @@ for (cont in 1:5) {
   if (nrow(country_subset) == 0) next
 
   text(country_subset$lyt_x, country_subset$lyt_y,
-       labels = country_subset$country_label,
-       cex = 0.5, col = "gray40", font = 1)
+       labels = country_subset$country_name,
+       cex = 0.45, col = "gray30", font = 1)
 }
 
 # Continent labels + connector lines
