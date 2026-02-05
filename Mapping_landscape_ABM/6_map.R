@@ -282,15 +282,15 @@ for (i in 1:nrow(continents)) {
   )
 }
 
-# Country letter labels (only for bigger country clusters)
-for (cont in 1:5) {
-  country_subset <- country_centroids %>% filter(continent == cont, n_papers > 10)
-  if (nrow(country_subset) == 0) next
+# # Country letter labels (only for bigger country clusters)
+# for (cont in 1:5) {
+#   country_subset <- country_centroids %>% filter(continent == cont, n_papers > 10)
+#   if (nrow(country_subset) == 0) next
 
-  text(country_subset$lyt_x, country_subset$lyt_y,
-       labels = country_subset$country_name,
-       cex = 0.45, col = "gray30", font = 1)
-}
+#   text(country_subset$lyt_x, country_subset$lyt_y,
+#        labels = country_subset$country_name,
+#        cex = 0.45, col = "gray30", font = 1)
+# }
 
 # Continent labels + connector lines
 for (i in 1:nrow(continent_labels)) {
@@ -299,11 +299,11 @@ for (i in 1:nrow(continent_labels)) {
   lines(c(ci$lyt_x, ci$lab_x), c(ci$lyt_y, ci$lab_y),
         col = ci$colors, lwd = 1, lty = 2)
 
-  rect(ci$lab_x - strwidth(ci$labels, cex = 0.9)/2 - 0.05,
-       ci$lab_y - strheight(ci$labels, cex = 0.9)/2 - 0.02,
-       ci$lab_x + strwidth(ci$labels, cex = 0.9)/2 + 0.05,
-       ci$lab_y + strheight(ci$labels, cex = 0.9)/2 + 0.02,
-       col = "white", border = NA)
+  # rect(ci$lab_x - strwidth(ci$labels, cex = 0.9)/2 - 0.05,
+  #      ci$lab_y - strheight(ci$labels, cex = 0.9)/2 - 0.02,
+  #      ci$lab_x + strwidth(ci$labels, cex = 0.9)/2 + 0.05,
+  #      ci$lab_y + strheight(ci$labels, cex = 0.9)/2 + 0.02,
+  #      col = "white", border = NA)
 
   text(ci$lab_x, ci$lab_y,
        labels = paste0(ci$labels, "\n(", ci$number, ")"),
@@ -312,9 +312,9 @@ for (i in 1:nrow(continent_labels)) {
        font = 2)
 }
 
-legend("bottomright",
-       legend = c("A), B), C)... = country clusters within continent"),
-       cex = 0.6, bty = "n", text.col = "gray40")
+# legend("bottomright",
+#        legend = c("A), B), C)... = country clusters within continent"),
+#        cex = 0.6, bty = "n", text.col = "gray40")
 
 dev.off()
 cat("Saved map:", out_map, "\n")
