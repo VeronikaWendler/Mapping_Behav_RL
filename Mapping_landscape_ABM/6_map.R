@@ -347,7 +347,6 @@ if ("tags_clean" %in% names(data)) {
 
 # ---------------------------
 # Timeline (uses data$year)
-require(tidyverse)
 
 # ---------------------------
 # Load main RDS (your clustered map data)
