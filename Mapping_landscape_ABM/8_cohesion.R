@@ -34,51 +34,68 @@ if ("year" %in% names(data)) {
 }
 
 # Required columns
-needed <- c("title_id", "continent", "country", "lyt_x", "lyt_y")
+needed <- c("id","title_id", "continent", "country", "lyt_x", "lyt_y")
 missing <- setdiff(needed, names(data))
 if (length(missing) > 0) stop("Missing columns in data: ", paste(missing, collapse = ", "))
 
-# Ensure rownames align with title_id
 if (is.null(rownames(emb))) {
-  stop("Your embedding matrix has no rownames. It MUST match data$title_id order.")
+  stop("Your embedding matrix has no rownames")
 }
 
 # If embeddings are in same order but names differ, you can force alignment:
 # emb <- emb[data$title_id, , drop = FALSE]
 
-if (!all(data$title_id %in% rownames(emb))) {
-  stop("Not all data$title_id are present in rownames(emb). Alignment mismatch.")
+rn <- rownames(emb)
+if (is.null(rn)) stop("emb has no rownames; cannot align.")
+
+# Make sure rownames are character for matching
+rn <- as.character(rn)
+rownames(emb) <- rn
+
+# Prefer aligning by `id` if it exists (this matches how combined_emb.RDS was saved in 4_clustering.R)
+if ("id" %in% names(data)) {
+  data <- data %>% mutate(id = as.character(id))
+
+  missing_ids <- setdiff(data$id, rownames(emb))
+  cat("Missing ids in emb:", length(missing_ids), "\n")
+  if (length(missing_ids) > 0) {
+    print(head(missing_ids, 20))
+    stop("Not all data$id are present in rownames(emb). Wrong emb file or filtered data.")
+  }
+
+  emb <- emb[data$id, , drop = FALSE]
+  stopifnot(identical(data$id, rownames(emb)))
+
+} else {
+  # Fallback: try to recover `id` from title_id like "123_some title"
+  if (!"title_id" %in% names(data)) stop("Neither id nor title_id found in data.")
+
+  data <- data %>%
+    mutate(id_from_title = as.character(readr::parse_number(title_id)))
+
+  missing_ids <- setdiff(data$id_from_title, rownames(emb))
+  cat("Missing ids_from_title in emb:", length(missing_ids), "\n")
+  if (length(missing_ids) > 0) {
+    print(head(missing_ids, 20))
+    stop("Could not align: embedding rownames don't match parsed ids from title_id.")
+  }
+
+  emb <- emb[data$id_from_title, , drop = FALSE]
+  stopifnot(identical(data$id_from_title, rownames(emb)))
 }
-emb <- emb[data$title_id, , drop = FALSE]
 
 
 stopifnot("title_id" %in% names(data))
 stopifnot(!is.null(rownames(emb)))
 
-common_ids <- intersect(data$title_id, rownames(emb))
+rownames(emb) <- data$title_id
 
+# Quick sanity print
 cat("data rows:", nrow(data), "\n")
 cat("emb rows:", nrow(emb), "\n")
-cat("common ids:", length(common_ids), "\n")
-cat("missing in emb:", sum(!data$title_id %in% rownames(emb)), "\n")
-
-if (length(common_ids) < 10) {
-  stop("Too few overlapping IDs between data$title_id and rownames(emb). Wrong emb file?")
-}
-
-data <- data %>% filter(title_id %in% common_ids)
-data <- data %>% arrange(match(title_id, rownames(emb)))
-emb <- emb[data$title_id, , drop = FALSE]
-
-# Safety check
 stopifnot(identical(data$title_id, rownames(emb)))
 
-# ---------------------------
-# Build similarity nets
-# ---------------------------
-# Robust splitting:
-# - If emb has 3 equal blocks: treat as author/ref/semantic
-# - Else: treat everything as "combined" and set others = combined
+
 p <- ncol(emb)
 
 if (p %% 3 == 0) {
