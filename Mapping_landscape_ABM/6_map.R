@@ -347,73 +347,104 @@ if ("tags_clean" %in% names(data)) {
 
 # ---------------------------
 # Timeline (uses data$year)
-# ---------------------------
-cat("Creating publication timeline...\n")
-timeline <- data %>%
-  filter(!is.na(year)) %>%
-  count(year) %>%
-  mutate(n_exp = ifelse(year == 2025, n * (12/5), n)) %>%
-  ggplot(aes(x = year, y = n)) +
-  geom_line(aes(y = n_exp), linewidth = 1) +
-  geom_line(linewidth = 1) +
-  geom_point(aes(y = n_exp), size = 2.5) +
-  geom_point(size = 2.5) +
-  theme_minimal() +
-  labs(
-    title = "Growth of ABM Literature (Your Corpus)",
-    y = "Number of Articles",
-    caption = "Expected = annualized count for partial year"
-  ) +
-  theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    panel.grid.minor = element_blank()
-  )
+require(tidyverse)
 
-ggsave(
-  "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/ABM_timeline.png",
-  timeline, width = 10, height = 5, dpi = 300
+# ---------------------------
+# Load main RDS (your clustered map data)
+# ---------------------------
+data_rds <- readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered_objective.RDS")
+
+# ---------------------------
+# Load CSV that contains Year
+# ---------------------------
+data_csv <- readr::read_csv(
+  "/rds/homes/v/vaw508/projects/Mapping_Behav_RL/Mapping_landscape_ABM/Data/data_cleaned_filtered_4_300_YE.csv",
+  show_col_types = FALSE
 )
-cat("Saved timeline plot.\n")
+
+cat("RDS cols:\n"); print(names(data_rds))
+cat("CSV cols:\n"); print(names(data_csv))
 
 # ---------------------------
-# Keyword highlight plots
+# 1) Find a join key that exists in BOTH
+#    (edit this list if you KNOW your correct ID column)
 # ---------------------------
-cat("Creating keyword highlight plots...\n")
-keywords_to_check <- c("agent-based", "emergence", "complexity", "simulation", "network")
+candidate_keys <- c(
+  "DOI", "doi",
+  "EID", "eid",
+  "Scopus_ID", "scopus_id", "scopusid",
+  "PaperID", "paper_id", "id",
+  "Title", "title", "Document title", "Document_title"
+)
 
-for (keyword in keywords_to_check) {
-
-  d_kw <- data %>%
-    mutate(
-      hit = str_detect(
-        tolower(replace_na(Abstract_cleaned, "")),
-        fixed(tolower(keyword))
-      )
-    )
-
-  n_hit <- sum(d_kw$hit, na.rm = TRUE)
-
-  p <- ggplot(d_kw, aes(x = lyt_x, y = lyt_y)) +
-    geom_point(data = d_kw %>% filter(!hit), color = "gray90", alpha = 0.2, size = 0.5) +
-    geom_point(data = d_kw %>% filter(hit), aes(color = factor(continent)),
-               alpha = 0.8, size = 1) +
-    scale_color_viridis_d(end = 0.8) +
-    theme_void() +
-    labs(
-      title = paste("Papers containing:", keyword),
-      subtitle = paste(n_hit, "papers")
-    ) +
-    theme(legend.position = "none")
-
-  ggsave(
-    filename = paste0(
-      "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/keyword_",
-      gsub("[^a-zA-Z0-9]+", "_", keyword),
-      ".png"
-    ),
-    plot = p,
-    width = 8, height = 6, dpi = 300
+common_keys <- intersect(candidate_keys, intersect(names(data_rds), names(data_csv)))
+if (length(common_keys) == 0) {
+  stop(
+    "No obvious join key found between RDS and CSV.\n",
+    "Look for a shared identifier (DOI/EID/title/id) and use it explicitly in left_join().\n",
+    "Example: left_join(data_rds, data_csv %>% select(MYKEY, Year), by = c('MYKEY'='MYKEY'))"
   )
 }
 
-cat("Done.\n")
+join_key <- common_keys[1]
+cat("Using join key:", join_key, "\n")
+
+# ---------------------------
+# 2) Pull Year from CSV and merge into RDS
+# ---------------------------
+# Make sure the CSV has a Year column (or something like it)
+year_candidates <- c("Year", "year", "PY", "pub_year", "PublicationYear", "publication_year")
+year_col <- intersect(year_candidates, names(data_csv))
+if (length(year_col) == 0) stop("CSV has no Year-like column. Found none of: ", paste(year_candidates, collapse=", "))
+year_col <- year_col[1]
+cat("Using year column from CSV:", year_col, "\n")
+
+data <- data_rds %>%
+  left_join(
+    data_csv %>%
+      select(all_of(join_key), Year_raw = all_of(year_col)) %>%
+      distinct(all_of(join_key), .keep_all = TRUE),
+    by = join_key
+  )
+
+# ---------------------------
+# 3) Clean Year: handle 1999.0, "1999.0", etc.
+# ---------------------------
+data <- data %>%
+  mutate(
+    Year = readr::parse_number(as.character(Year_raw)),  # turns "1999.0" into 1999
+    Year = as.integer(floor(Year))                       # ensures integer year
+  )
+
+# ---------------------------
+# 4) Drop papers without valid year
+# ---------------------------
+data_year <- data %>%
+  filter(!is.na(Year), Year >= 1900, Year <= 2100)
+
+cat("Year coverage:\n")
+cat("  total rows:", nrow(data), "\n")
+cat("  rows with valid Year:", nrow(data_year), "\n")
+cat("  example Years:", paste(head(sort(unique(data_year$Year)), 10), collapse=", "), "\n")
+
+# ---------------------------
+# 5) Plot timeline
+# ---------------------------
+timeline_df <- data_year %>%
+  count(Year, name = "n") %>%
+  arrange(Year)
+
+p_timeline <- ggplot(timeline_df, aes(x = Year, y = n)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  theme_minimal() +
+  labs(
+    title = "Growth of ABM Literature (Your Corpus)",
+    x = "Year",
+    y = "Number of Articles"
+  )
+
+out_timeline <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/ABM_timeline.png"
+ggsave(out_timeline, p_timeline, width = 10, height = 5, dpi = 300)
+
+cat("Saved timeline:", out_timeline, "\n")

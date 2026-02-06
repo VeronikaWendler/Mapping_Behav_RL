@@ -69,4 +69,4 @@ conda activate mapping_abm
 # fi
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/add_year.py
+Rscript Mapping_landscape_ABM/6_map.py
