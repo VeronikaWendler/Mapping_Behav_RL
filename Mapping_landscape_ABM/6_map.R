@@ -348,14 +348,8 @@ if ("tags_clean" %in% names(data)) {
 # ---------------------------
 # Timeline (uses data$year)
 
-# ---------------------------
-# Load main RDS (your clustered map data)
-# ---------------------------
 data_rds <- readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered_objective.RDS")
 
-# ---------------------------
-# Load CSV that contains Year
-# ---------------------------
 data_csv <- readr::read_csv(
   "/rds/homes/v/vaw508/projects/Mapping_Behav_RL/Mapping_landscape_ABM/Data/data_cleaned_filtered_4_300_YE.csv",
   show_col_types = FALSE
@@ -364,9 +358,6 @@ data_csv <- readr::read_csv(
 cat("RDS cols:\n"); print(names(data_rds))
 cat("CSV cols:\n"); print(names(data_csv))
 
-# ---------------------------
-# 1) Find a join key that exists in BOTH
-#    (edit this list if you KNOW your correct ID column)
 # ---------------------------
 candidate_keys <- c(
   "DOI", "doi",
@@ -387,11 +378,7 @@ if (length(common_keys) == 0) {
 
 join_key <- common_keys[1]
 cat("Using join key:", join_key, "\n")
-
-# ---------------------------
-# 2) Pull Year from CSV and merge into RDS
-# ---------------------------
-# Make sure the CSV has a Year column (or something like it)
+)
 year_candidates <- c("Year", "year", "PY", "pub_year", "PublicationYear", "publication_year")
 year_col <- intersect(year_candidates, names(data_csv))
 if (length(year_col) == 0) stop("CSV has no Year-like column. Found none of: ", paste(year_candidates, collapse=", "))
@@ -406,18 +393,14 @@ data <- data_rds %>%
     by = join_key
   )
 
-# ---------------------------
-# 3) Clean Year: handle 1999.0, "1999.0", etc.
-# ---------------------------
+
 data <- data %>%
   mutate(
-    Year = readr::parse_number(as.character(Year_raw)),  # turns "1999.0" into 1999
+    Year = readr::parse_number(as.character(Year_raw)),  
     Year = as.integer(floor(Year))                       # ensures integer year
   )
 
-# ---------------------------
-# 4) Drop papers without valid year
-# ---------------------------
+
 data_year <- data %>%
   filter(!is.na(Year), Year >= 1900, Year <= 2100)
 
@@ -438,7 +421,7 @@ p_timeline <- ggplot(timeline_df, aes(x = Year, y = n)) +
   geom_point(size = 2) +
   theme_minimal() +
   labs(
-    title = "Growth of ABM Literature (Your Corpus)",
+    title = "Growth of ABM Literature",
     x = "Year",
     y = "Number of Articles"
   )
