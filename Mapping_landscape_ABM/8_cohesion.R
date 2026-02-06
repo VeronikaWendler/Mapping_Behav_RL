@@ -51,6 +51,28 @@ if (!all(data$title_id %in% rownames(emb))) {
 }
 emb <- emb[data$title_id, , drop = FALSE]
 
+
+stopifnot("title_id" %in% names(data))
+stopifnot(!is.null(rownames(emb)))
+
+common_ids <- intersect(data$title_id, rownames(emb))
+
+cat("data rows:", nrow(data), "\n")
+cat("emb rows:", nrow(emb), "\n")
+cat("common ids:", length(common_ids), "\n")
+cat("missing in emb:", sum(!data$title_id %in% rownames(emb)), "\n")
+
+if (length(common_ids) < 10) {
+  stop("Too few overlapping IDs between data$title_id and rownames(emb). Wrong emb file?")
+}
+
+data <- data %>% filter(title_id %in% common_ids)
+data <- data %>% arrange(match(title_id, rownames(emb)))
+emb <- emb[data$title_id, , drop = FALSE]
+
+# Safety check
+stopifnot(identical(data$title_id, rownames(emb)))
+
 # ---------------------------
 # Build similarity nets
 # ---------------------------
@@ -102,7 +124,11 @@ continents <- tibble(
 # ---------------------------
 # Similarity between country-clusters
 # ---------------------------
-n_country <- length(unique(data$country))
+data <- data %>%
+  mutate(country = as.integer(factor(country)))
+
+n_country <- n_distinct(data$country)
+
 if (!all(sort(unique(data$country)) == 1:n_country)) {
   # If your country IDs aren’t 1..K, map them
   country_map <- tibble(country_orig = sort(unique(data$country))) %>%
