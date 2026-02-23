@@ -32,7 +32,7 @@ model <- sbert$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 # labels
 #labels <- read_csv("Mapping_landscape_ABM/Data/data_selected_labels_4.csv")
-labels <- read_csv("Mapping_landscape_ABM/Data/data_selected_labels_4_300.csv") |>
+labels <- read_csv("Mapping_landscape_ABM/Data/data_selected_labels_4_1000.csv") |>
   mutate(
     out_of_scope = as.integer(out_of_scope)
   )
@@ -96,7 +96,7 @@ data_emb <- model$encode(data$Abstract_cleaned, show_progress_bar = TRUE)
 for(i in 1:ncol(data_emb)) data_emb[,i] <- z(data_emb[,i])
 pred_class <- predict(m, newx = data_emb, type = "class") |> as.integer()
 data_filtered <- data |> filter(pred_class == 0)
-write_csv(data_filtered, file.path(out_dir, "data_cleaned_filtered_4_300.csv"))
+write_csv(data_filtered, file.path(out_dir, "data_cleaned_filtered_4_1000.csv"))
 
 cat(sprintf("[%s] Wrote filtered data: %d/%d rows kept.\n",
             Sys.time(), nrow(data_filtered), nrow(data))); flush.console()
