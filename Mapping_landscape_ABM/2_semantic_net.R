@@ -19,44 +19,44 @@ sbert = import("sentence_transformers")
 model = sbert$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 embed = model$encode(data$text)
 
-# embed_cos = arma_cosine(embed)
-# embed_cos[embed_cos > 1] = 1 ; embed_cos[embed_cos < -1] = -1
-# embed_acos = 1-acos(embed_cos)/pi
-# rownames(embed_acos) = colnames(embed_acos) = data$id
+embed_cos = arma_cosine(embed)
+embed_cos[embed_cos > 1] = 1 ; embed_cos[embed_cos < -1] = -1
+embed_acos = 1-acos(embed_cos)/pi
+rownames(embed_acos) = colnames(embed_acos) = data$id
 
-# clust = hclust(as.dist(1-embed_acos[as.character(data$id),as.character(data$id)])) |> cutree(k = 50)
-# names(clust) = data$id
+clust = hclust(as.dist(1-embed_acos[as.character(data$id),as.character(data$id)])) |> cutree(k = 50)
+names(clust) = data$id
 
-# pairs = crossing(i = data$id,
-#                  j = data$id) |> 
-#   filter(i < j) |> 
-#   mutate(cl_i = clust[as.character(i)],
-#          cl_j = clust[as.character(j)],
-#          cos = embed_acos[cbind(as.character(i), as.character(j))])
+pairs = crossing(i = data$id,
+                 j = data$id) |> 
+  filter(i < j) |> 
+  mutate(cl_i = clust[as.character(i)],
+         cl_j = clust[as.character(j)],
+         cos = embed_acos[cbind(as.character(i), as.character(j))])
 
-# set.seed(100)
-# train_pairs = lapply(1:50, function(x){
+set.seed(100)
+train_pairs = lapply(1:50, function(x){
   
-#   within = pairs |> filter(cl_i == x, cl_j == x) |> mutate(type = "within")
-#   between = pairs |> filter((cl_i == x & cl_j != x) | cl_i != x & cl_j == x) |> mutate(type = "between")
+  within = pairs |> filter(cl_i == x, cl_j == x) |> mutate(type = "within")
+  between = pairs |> filter((cl_i == x & cl_j != x) | cl_i != x & cl_j == x) |> mutate(type = "between")
   
-#   sel_within = sample(nrow(within), min(1000, nrow(within)), prob = within$cos ** 10)
-#   sel_between = sample(nrow(between), min(1000, nrow(between)), prob = between$cos ** 10)
+  sel_within = sample(nrow(within), min(1000, nrow(within)), prob = within$cos ** 10)
+  sel_between = sample(nrow(between), min(1000, nrow(between)), prob = between$cos ** 10)
   
-#   within = within |> slice(sel_within)
-#   between = between |> slice(sel_between)
+  within = within |> slice(sel_within)
+  between = between |> slice(sel_between)
   
-#   tibble(within) |> bind_rows(between) |> mutate(cl = x)
-#   }) |> bind_rows() |> slice(sample(n(), 50000))
+  tibble(within) |> bind_rows(between) |> mutate(cl = x)
+  }) |> bind_rows() |> slice(sample(n(), 50000))
 
-# texts = data |> pull(text, id)
-# train_pairs = train_pairs |> 
-#   mutate(text_i = texts[as.character(i)],
-#          text_j = texts[as.character(j)])
+texts = data |> pull(text, id)
+train_pairs = train_pairs |> 
+  mutate(text_i = texts[as.character(i)],
+         text_j = texts[as.character(j)])
 
-# out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs.csv"
-# dir.create(dirname(out_file), recursive = TRUE, showWarnings = FALSE)
-# write_csv(train_pairs, out_file)
+out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs.csv"
+dir.create(dirname(out_file), recursive = TRUE, showWarnings = FALSE)
+write_csv(train_pairs, out_file)
 
 
 
@@ -96,15 +96,15 @@ embed = model$encode(data$text)
 
 # # GENERATE NET -----
 
-torch = import("torch")
-sbert = import("sentence_transformers")
-hub = import("huggingface_hub")
-model = sbert$SentenceTransformer("dwulff/minilm-brl")
+# torch = import("torch")
+# sbert = import("sentence_transformers")
+# hub = import("huggingface_hub")
+# model = sbert$SentenceTransformer("dwulff/minilm-brl")
 
-context = "An article on behavioral agent-based modelling:\n\n"
-sem_emb = model$encode(paste0(context, data$text))
-rownames(sem_emb) = data$id
+# context = "An article on behavioral agent-based modelling:\n\n"
+# sem_emb = model$encode(paste0(context, data$text))
+# rownames(sem_emb) = data$id
 
-saveRDS(sem_emb, "Mapping_landscape_ABM/Data/embs_1000/semantic_emb.RDS")
+# saveRDS(sem_emb, "Mapping_landscape_ABM/Data/embs_1000/semantic_emb.RDS")
 
 

@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=2_author_net_
+#SBATCH --job-name=1000_semantic_net_
 #SBATCH --account=zhanglp-vwendler-core
-#SBATCH --cpus-per-task=6
-#SBATCH --mem=64G
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=200G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/%x.%j.out
 #SBATCH --error=logs/%x.%j.err
@@ -69,4 +69,4 @@ conda activate mapping_abm
 # fi
 
 cd ~/projects/Mapping_Behav_RL
-Rscript Mapping_landscape_ABM/2_references_net.R
+Rscript Mapping_landscape_ABM/2_semantic_net.R
