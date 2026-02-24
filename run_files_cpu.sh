@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ollama_gpu
+#SBATCH --job-name=2_author_net_
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=64G
@@ -69,4 +69,4 @@ conda activate mapping_abm
 # fi
 
 cd ~/projects/Mapping_Behav_RL
-Rscript Mapping_landscape_ABM/1_filter.R
+Rscript Mapping_landscape_ABM/2_author_net.R
