@@ -2,7 +2,7 @@ require(tidyverse)
 require(Matrix)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
-data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_4_300.csv")
+data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_4_1000.csv")
 
 process = function(x) {
   x %>% str_to_lower() %>% 
@@ -42,4 +42,4 @@ set.seed(100)
 i = sample(1:nrow(data), 1)
 sort(ref_cos[i,], decreasing = TRUE)[1:5]
 
-saveRDS(ref_emb, "Mapping_landscape_ABM/Data/embs_300/references_emb.RDS")
+saveRDS(ref_emb, "Mapping_landscape_ABM/Data/embs_1000/references_emb.RDS")

@@ -69,4 +69,4 @@ conda activate mapping_abm
 # fi
 
 cd ~/projects/Mapping_Behav_RL
-Rscript Mapping_landscape_ABM/2_author_net.R
+Rscript Mapping_landscape_ABM/2_references_net.R
