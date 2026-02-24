@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=1000_semantic_net_
 #SBATCH --account=zhanglp-vwendler-core
+#SBATCH --qos=bbdefault
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=200G
 #SBATCH --time=24:00:00
@@ -15,7 +16,15 @@ mkdir -p logs
 module purge
 module load bear-apps/2024a/live
 
-export MPLCONFIGDIR=${SLURM_TMPDIR:-/tmp}/mplcache
+# ----------------------------
+# Keep caches off HOME (fixes disk quota exceeded)
+# ----------------------------
+export APPTAINER_TMPDIR="${SLURM_TMPDIR:-/tmp}/apptainer-tmp"
+export APPTAINER_CACHEDIR="${SLURM_TMPDIR:-/tmp}/apptainer-cache"
+mkdir -p "$APPTAINER_TMPDIR" "$APPTAINER_CACHEDIR"
+
+# (optional) keep python/matplotlib caches off HOME too
+export MPLCONFIGDIR="${SLURM_TMPDIR:-/tmp}/mplcache"
 export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 export PYTHONNOUSERSITE=1
@@ -23,25 +32,38 @@ export PYTHONNOUSERSITE=1
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 
-# ---- Ollama model cache on RDS (so you don't re-download every job)
+# ----------------------------
+# Ollama model cache on RDS (persistent across jobs)
+# ----------------------------
 mkdir -p /rds/projects/z/zhanglp-vwendler-core/ollama_models
 mkdir -p ~/.ollama
 ln -sfn /rds/projects/z/zhanglp-vwendler-core/ollama_models ~/.ollama/models
 
-# ---- Pull container once
-if [ ! -f ollama_latest.sif ]; then
-  apptainer pull ollama_latest.sif docker://ollama/ollama
+# ----------------------------
+# Store the Ollama container SIF on RDS (pull once)
+# ----------------------------
+CONTAINERS_DIR="/rds/projects/z/zhanglp-vwendler-core/containers"
+SIF="${CONTAINERS_DIR}/ollama_latest.sif"
+mkdir -p "$CONTAINERS_DIR"
+
+if [ ! -f "$SIF" ]; then
+  echo "[INFO] Pulling Ollama container to: $SIF"
+  apptainer pull "$SIF" docker://ollama/ollama
+else
+  echo "[INFO] Using existing container: $SIF"
 fi
 
-# ---- Start Ollama (CPU; NO --nv)
-apptainer exec ollama_latest.sif ollama serve > ollama_server.log 2>&1 &
+# ----------------------------
+# Start Ollama (CPU mode; do NOT use --nv)
+# ----------------------------
+apptainer exec "$SIF" ollama serve > "ollama_server.${SLURM_JOB_ID}.log" 2>&1 &
 OLLAMA_PID=$!
 
-cleanup() { kill $OLLAMA_PID 2>/dev/null || true; }
+cleanup() { kill "$OLLAMA_PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
-# ---- Wait until ready
-for i in {1..60}; do
+# Wait until Ollama is ready
+for i in {1..90}; do
   if curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
     break
   fi
@@ -50,17 +72,22 @@ done
 
 if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
   echo "[FATAL] Ollama server did not start." >&2
-  tail -n 120 ollama_server.log || true
+  tail -n 160 "ollama_server.${SLURM_JOB_ID}.log" || true
   exit 1
 fi
 
-# ---- Pull model only if missing
+# Pull model only if missing (persistent via ~/.ollama/models -> RDS)
 MODEL="llama2:7b"
-if ! apptainer exec ollama_latest.sif ollama list | awk '{print $1}' | grep -qx "$MODEL"; then
-  apptainer exec ollama_latest.sif ollama pull "$MODEL"
+if ! apptainer exec "$SIF" ollama list | awk '{print $1}' | grep -qx "$MODEL"; then
+  echo "[INFO] Pulling model: $MODEL"
+  apptainer exec "$SIF" ollama pull "$MODEL"
+else
+  echo "[INFO] Model already present: $MODEL"
 fi
 
-# ---- Runtime knobs for your Python script (important)
+# ----------------------------
+# Runtime knobs for your Python script
+# ----------------------------
 export OLLAMA_MODEL="llama2:7b"
 export OLLAMA_THREADS="${SLURM_CPUS_PER_TASK}"
 export OLLAMA_WORKERS=1
@@ -68,10 +95,12 @@ export BATCH_SIZE=20
 export OLLAMA_TIMEOUT=1800
 export OLLAMA_RETRIES=2
 
-# If your modified script supports these (recommended):
 export MAX_PAIRS=50000
 export OLLAMA_NUM_PREDICT=32
 export OLLAMA_NUM_CTX=2048
 
+# ----------------------------
+# Run
+# ----------------------------
 cd ~/projects/Mapping_Behav_RL
 python Mapping_landscape_ABM/22.1_semantic_ratings.py
