@@ -17,10 +17,9 @@ module purge
 module load bear-apps/2024a/live
 
 # ----------------------------
-# Keep caches off HOME (fixes disk quota exceeded)
-# ----------------------------
-export APPTAINER_TMPDIR="${SLURM_TMPDIR:-/tmp}/apptainer-tmp"
-export APPTAINER_CACHEDIR="${SLURM_TMPDIR:-/tmp}/apptainer-cache"
+# Big, persistent space for Apptainer build/unpack
+export APPTAINER_TMPDIR="/rds/projects/z/zhanglp-vwendler-core/apptainer_tmp"
+export APPTAINER_CACHEDIR="/rds/projects/z/zhanglp-vwendler-core/apptainer_cache"
 mkdir -p "$APPTAINER_TMPDIR" "$APPTAINER_CACHEDIR"
 
 # (optional) keep python/matplotlib caches off HOME too
