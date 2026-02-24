@@ -17,8 +17,7 @@ data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_4_1000.csv") |
 
 sbert = import("sentence_transformers")
 model = sbert$SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-embed = model$encode(data$text)
-
+embed = model$encode(data$text, show_progress_bar = TRUE)
 embed_cos = arma_cosine(embed)
 embed_cos[embed_cos > 1] = 1 ; embed_cos[embed_cos < -1] = -1
 embed_acos = 1-acos(embed_cos)/pi
