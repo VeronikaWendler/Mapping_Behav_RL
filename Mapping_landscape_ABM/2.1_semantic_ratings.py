@@ -15,9 +15,9 @@ OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 MODEL = os.environ.get("OLLAMA_MODEL", "llama2:7b")
 
 # ----------------------------
-# Strict parsing: enforce final Answer=[n] line exists
+# Parse: accept Answer=[n] (preferred) and (optionally) Answer=n
 # ----------------------------
-ANSWER_RE = re.compile(r"^Answer=\[(\d{1,3})\]\s*$", re.MULTILINE)
+ANSWER_RE = re.compile(r"^Answer=\[?(\d{1,3})\]?\s*$", re.MULTILINE)
 
 def extract_rating_or_die(text: str) -> int:
     if text is None:
@@ -50,21 +50,18 @@ def atomic_write_csv(df: pd.DataFrame, path: str):
     os.replace(tmp, path)
 
 def run_one(prompt: str, num_threads: int, timeout: int, max_retries: int) -> str:
-    """
-    /api/generate returns JSON with "response" field (NOT message.content).
-    """
     payload = {
         "model": MODEL,
-        # Pass system separately for better instruction-following
         "system": SYSTEM_PROMPT,
         "prompt": prompt,
         "stream": False,
         "options": {
             "temperature": 0,
-            "num_predict": int(os.environ.get("OLLAMA_NUM_PREDICT", "256")),  # allow reasoning
+            # Answer-only => keep generation short
+            "num_predict": int(os.environ.get("OLLAMA_NUM_PREDICT", "32")),
             "num_thread": num_threads,
-            "num_ctx": int(os.environ.get("OLLAMA_NUM_CTX", "4096")),         # abstracts can be long
-            # IMPORTANT: no stop tokens, otherwise reasoning gets truncated
+            # reduce ctx if you want speed; 2048 is often enough for abstracts
+            "num_ctx": int(os.environ.get("OLLAMA_NUM_CTX", "2048")),
         }
     }
 
@@ -92,30 +89,25 @@ out_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_trai
 audit_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_ratings_audit.jsonl"
 
 # ----------------------------
-# Prompt content (UPDATED: behavioral agent-based modelling)
+# Prompt content (Answer-only)
 # ----------------------------
 SYSTEM_PROMPT = (
     "You are an expert in the academic literature on behavioral agent-based modelling (ABM), "
     "who accurately discerns differences in specific research topics."
 )
 
-TASK_DESCRIPTION = """Your primary task is to compare the following two articles (Article 1 and Article 2) based *only* on their provided titles and abstracts. Both articles operate within the general field of behavioral agent-based modelling (ABM).
+TASK_DESCRIPTION = """Compare Article 1 and Article 2 based only on their titles and abstracts.
+Both are in behavioral agent-based modelling (ABM).
 
-Your goal is to determine how similar their *specific research topics* are within the ABM context. Do they investigate the same sub-problem, mechanism, or research question?"""
+Rate how similar their specific research topics are within ABM on a scale 0-100:
+0 = completely different topics
+50 = related but distinct topics
+100 = same topic"""
 
 FORMAT_INSTRUCTIONS = """
-First, provide your reasoning:
-**Reasoning:**
-[Provide a brief explanation here comparing the specific research topics, methodologies, or questions apparent in the titles/abstracts. Highlight similarities and differences relevant to the ABM field.]
-
-Second, immediately following your reasoning, provide the numerical rating on a new line using the specified format.
-Rate the similarity of the specific research topics on a scale from 0 to 100:
-* **0:** Completely different specific research topics within ABM.
-* **50:** The articles share significant common ground but ultimately address distinct specific research topics within ABM.
-* **100:** The articles address the same specific research topic within ABM.
-
-Strictly format the rating line *exactly* like this, with no extra text before or after:
+Return ONLY one line exactly in this format (no other text):
 Answer=[rating]
+where rating is an integer from 0 to 100.
 """.strip()
 
 def build_prompt(train: pd.DataFrame, idx: int) -> str:
@@ -123,19 +115,20 @@ def build_prompt(train: pd.DataFrame, idx: int) -> str:
         "-- Article 1 --\n" + str(train.at[idx, "text_i"]) +
         "\n\n-- Article 2 --\n" + str(train.at[idx, "text_j"])
     )
-    # NOTE: system prompt is passed via payload["system"], not here.
-    return (
-        f"{TASK_DESCRIPTION}\n\n"
-        f"Here are the articles to evaluate:\n\n{pair}\n\n"
-        f"{FORMAT_INSTRUCTIONS}\n"
-    )
+    return f"{TASK_DESCRIPTION}\n\n{pair}\n\n{FORMAT_INSTRUCTIONS}\n"
 
 def main():
     ensure_ollama_up_or_die()
     print(f"[OK] Using local Ollama model: {MODEL}", flush=True)
 
     base = pd.read_csv(in_path)
-    print(f"Total rows: {len(base)}", flush=True)
+    print(f"Total rows in train_pairs.csv: {len(base)}", flush=True)
+
+    # SAFETY CAP (prevents accidental millions)
+    max_pairs = int(os.environ.get("MAX_PAIRS", "50000"))
+    if len(base) > max_pairs:
+        print(f"[WARN] Capping to MAX_PAIRS={max_pairs} (from {len(base)})", flush=True)
+        base = base.iloc[:max_pairs].copy()
 
     # Resume if exists
     if os.path.exists(out_path):
@@ -144,41 +137,28 @@ def main():
         for col in base.columns:
             if col not in train.columns:
                 train[col] = base[col]
-        if "out_raw" not in train.columns:
-            train["out_raw"] = ""
-        if "rating" not in train.columns:
-            train["rating"] = pd.NA
+        if "out" not in train.columns:
+            train["out"] = ""
     else:
         train = base.copy()
-        train["out_raw"] = ""
-        train["rating"] = pd.NA
+        train["out"] = ""
 
-    def is_done(x):
-        try:
-            if pd.isna(x):
-                return False
-            v = int(float(x))
-            return 0 <= v <= 100
-        except Exception:
-            return False
+    def is_done_out(x):
+        return isinstance(x, str) and ("Answer=" in x)
 
-    done_mask = train["rating"].apply(is_done)
+    done_mask = train["out"].fillna("").astype(str).apply(is_done_out)
     start_idx = int(train.index[~done_mask].min()) if (~done_mask).any() else len(train)
 
-    # ----------------------------
     # Performance knobs
-    # ----------------------------
-    # Ollama is often effectively single-queue unless configured otherwise.
-    workers = int(os.environ.get("OLLAMA_WORKERS", "1"))  # default 1 to avoid client timeouts
+    workers = int(os.environ.get("OLLAMA_WORKERS", "1"))
     batch_size = int(os.environ.get("BATCH_SIZE", "20"))
-    num_threads = int(os.environ.get("OLLAMA_THREADS", os.environ.get("SLURM_CPUS_PER_TASK", "6")))
-
-    timeout = int(os.environ.get("OLLAMA_TIMEOUT", "1800"))  # seconds (30 min/request)
+    num_threads = int(os.environ.get("OLLAMA_THREADS", os.environ.get("SLURM_CPUS_PER_TASK", "8")))
+    timeout = int(os.environ.get("OLLAMA_TIMEOUT", "1800"))
     max_retries = int(os.environ.get("OLLAMA_RETRIES", "2"))
 
-    print(f"Already completed: {done_mask.sum()}", flush=True)
+    print(f"Already completed (Answer=): {done_mask.sum()}", flush=True)
     print(f"Starting at index: {start_idx}", flush=True)
-    print(f"workers={workers} batch_size={batch_size} num_threads={num_threads}", flush=True)
+    print(f"workers={workers} batch_size={batch_size} num_threads={num_threads} MAX_PAIRS={max_pairs}", flush=True)
 
     os.makedirs(os.path.dirname(audit_path), exist_ok=True)
     audit_f = open(audit_path, "a", encoding="utf-8")
@@ -186,7 +166,8 @@ def main():
     try:
         for begin in range(start_idx, len(train), batch_size):
             end = min(begin + batch_size, len(train))
-            idxs = [i for i in range(begin, end) if not is_done(train.at[i, "rating"])]
+            idxs = [i for i in range(begin, end) if not is_done_out(str(train.at[i, "out"]))]
+
             if not idxs:
                 continue
 
@@ -196,7 +177,6 @@ def main():
             def call(p):
                 return run_one(p, num_threads=num_threads, timeout=timeout, max_retries=max_retries)
 
-            # Limited parallelism (default 1)
             if workers == 1:
                 results = [call(p) for p in prompts]
             else:
@@ -205,18 +185,20 @@ def main():
 
             for k, (i, raw) in enumerate(zip(idxs, results), start=1):
                 rating = extract_rating_or_die(raw)
-                train.at[i, "out_raw"] = raw
-                train.at[i, "rating"] = int(rating)
+                out_line = f"Answer=[{rating}]"
+
+                # Make output compatible with code2 + downstream R
+                train.at[i, "out"] = out_line
 
                 audit_f.write(json.dumps({
                     "row_idx": int(i),
                     "i": int(train.at[i, "i"]) if "i" in train.columns and pd.notna(train.at[i, "i"]) else None,
                     "j": int(train.at[i, "j"]) if "j" in train.columns and pd.notna(train.at[i, "j"]) else None,
                     "rating": int(rating),
-                    "raw": raw[:1000]  # store a bit more since reasoning exists
+                    "raw": raw[:300]
                 }) + "\n")
 
-                if (k % 5) == 0:
+                if (k % 20) == 0:
                     print(f"progress: row {i} ({i+1}/{len(train)})", flush=True)
 
             audit_f.flush()
@@ -230,13 +212,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
 
 
 

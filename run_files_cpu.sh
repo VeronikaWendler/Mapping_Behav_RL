@@ -23,50 +23,55 @@ export PYTHONNOUSERSITE=1
 source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 
-# cd /rds/projects/z/zhanglp-vwendler-core/
-# unset APPTAINER_BIND
+# ---- Ollama model cache on RDS (so you don't re-download every job)
+mkdir -p /rds/projects/z/zhanglp-vwendler-core/ollama_models
+mkdir -p ~/.ollama
+ln -sfn /rds/projects/z/zhanglp-vwendler-core/ollama_models ~/.ollama/models
 
-# # Sanity check: confirm Slurm gave you a GPU and it’s visible
-# echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}"
-# echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}"
-# nvidia-smi || true
+# ---- Pull container once
+if [ ! -f ollama_latest.sif ]; then
+  apptainer pull ollama_latest.sif docker://ollama/ollama
+fi
 
-# # persistent cache on RDS
-# mkdir -p /rds/projects/z/zhanglp-vwendler-core/ollama_models
-# mkdir -p ~/.ollama
-# ln -sfn /rds/projects/z/zhanglp-vwendler-core/ollama_models ~/.ollama/models
+# ---- Start Ollama (CPU; NO --nv)
+apptainer exec ollama_latest.sif ollama serve > ollama_server.log 2>&1 &
+OLLAMA_PID=$!
 
-# # pull container once (your check is fine, but this ensures a stable filename)
-# if [ ! -f ollama_latest.sif ]; then
-#   apptainer pull ollama_latest.sif docker://ollama/ollama
-# fi
+cleanup() { kill $OLLAMA_PID 2>/dev/null || true; }
+trap cleanup EXIT
 
-# # start ollama (GPU-capable via --nv)
-# apptainer exec --nv ollama_latest.sif ollama serve > ollama_server.log 2>&1 &
-# OLLAMA_PID=$!
+# ---- Wait until ready
+for i in {1..60}; do
+  if curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
 
-# cleanup() { kill $OLLAMA_PID 2>/dev/null || true; }
-# trap cleanup EXIT
+if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+  echo "[FATAL] Ollama server did not start." >&2
+  tail -n 120 ollama_server.log || true
+  exit 1
+fi
 
-# # wait until ready
-# for i in {1..60}; do
-#   if curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
-#     break
-#   fi
-#   sleep 1
-# done
+# ---- Pull model only if missing
+MODEL="llama2:7b"
+if ! apptainer exec ollama_latest.sif ollama list | awk '{print $1}' | grep -qx "$MODEL"; then
+  apptainer exec ollama_latest.sif ollama pull "$MODEL"
+fi
 
-# if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
-#   echo "[FATAL] Ollama server did not start." >&2
-#   tail -n 80 ollama_server.log || true
-#   exit 1
-# fi
+# ---- Runtime knobs for your Python script (important)
+export OLLAMA_MODEL="llama2:7b"
+export OLLAMA_THREADS="${SLURM_CPUS_PER_TASK}"
+export OLLAMA_WORKERS=1
+export BATCH_SIZE=20
+export OLLAMA_TIMEOUT=1800
+export OLLAMA_RETRIES=2
 
-# # pull model only if missing
-# MODEL="llama2:7b"
-# if ! apptainer exec --nv ollama_latest.sif ollama list | awk '{print $1}' | grep -qx "$MODEL"; then
-#   apptainer exec --nv ollama_latest.sif ollama pull "$MODEL"
-# fi
+# If your modified script supports these (recommended):
+export MAX_PAIRS=50000
+export OLLAMA_NUM_PREDICT=32
+export OLLAMA_NUM_CTX=2048
 
 cd ~/projects/Mapping_Behav_RL
-Rscript Mapping_landscape_ABM/2_semantic_net.R
+python Mapping_landscape_ABM/22.1_semantic_ratings.py
