@@ -9,7 +9,7 @@ Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
 remotes::install_github("https://github.com/dwulff/memnet")
 
-data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_4_300.csv") |> mutate(text = paste0("Title: ", Title, ".\nAbstract: ", Abstract_cleaned))
+data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_4_1000.csv") |> mutate(text = paste0("Title: ", Title, ".\nAbstract: ", Abstract_cleaned))
 
 # GENERATE TRAINING EXAMPLES -----
 #reticulate::py_install("sentence-transformers")
@@ -54,7 +54,7 @@ embed = model$encode(data$text)
 #   mutate(text_i = texts[as.character(i)],
 #          text_j = texts[as.character(j)])
 
-# out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs.csv"
+# out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs.csv"
 # dir.create(dirname(out_file), recursive = TRUE, showWarnings = FALSE)
 # write_csv(train_pairs, out_file)
 
@@ -62,7 +62,7 @@ embed = model$encode(data$text)
 
 # PROCESS RATINGS -----------------------------------------------------------------------------------------------
 
-# train_pairs_ratings = read_csv("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_ratings.csv") |> 
+# train_pairs_ratings = read_csv("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_ratings.csv") |> 
 #   mutate(
 #     rating = out |> str_extract("Answer=[:digit:]+") |> str_remove("Answer=") |> as.numeric(),
 #     rating_scaled = rating / 100
@@ -70,12 +70,12 @@ embed = model$encode(data$text)
 #   filter(!is.na(rating_scaled)) |>          # drop ERROR rows / blanks
 #   select(-1)                                # keep if your CSV has an X1 index column; otherwise remove
 
-# write_csv(train_pairs_ratings, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_rating_clean.csv")
+# write_csv(train_pairs_ratings, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_rating_clean.csv")
 
 ###------
 
-# in_file  <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_ratings.csv"
-# out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_rating_clean.csv"
+# in_file  <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_ratings.csv"
+# out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_rating_clean.csv"
 # train_pairs_ratings <- read_csv(in_file, show_col_types = FALSE)
 
 # index_like <- c("X1", "X", "...1", "Unnamed: 0", "unnamed: 0")
@@ -101,10 +101,10 @@ sbert = import("sentence_transformers")
 hub = import("huggingface_hub")
 model = sbert$SentenceTransformer("dwulff/minilm-brl")
 
-context = "An article on behavioral reinforcement learning:\n\n"
+context = "An article on behavioral agent-based modelling:\n\n"
 sem_emb = model$encode(paste0(context, data$text))
 rownames(sem_emb) = data$id
 
-saveRDS(sem_emb, "Mapping_landscape_ABM/Data/embs_300/semantic_emb.RDS")
+saveRDS(sem_emb, "Mapping_landscape_ABM/Data/embs_1000/semantic_emb.RDS")
 
 

@@ -26,7 +26,7 @@ for(i in 1:length(references_split_processed)){
   ref_cooc[i,refs] = ref_cooc[i,refs] + 1
 }
 
-sel = which(colSums(ref_cooc) > 4) |> unname()
+sel = which(colSums(ref_cooc) > 1) |> unname()
 ref_cooc_sel = ref_cooc[,sel]
 
 ref_ppmi = ppmi_sparse(ref_cooc_sel)

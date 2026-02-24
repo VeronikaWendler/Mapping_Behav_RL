@@ -33,7 +33,7 @@ model = SentenceTransformer(model_name, trust_remote_code=True)
 model.to(device)  # Ensure model is on correct device
 
 # Load dataset
-data = pd.read_csv("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_rating_clean.csv")
+data = pd.read_csv("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_rating_clean.csv")
 print(f"Loaded dataset with {len(data)} rows")
 
 # Print some stats about the rating scores
@@ -159,7 +159,7 @@ model.fit(
 
 
 print("\nSave model")
-model.save("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/minilm_ft")
+model.save("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/minilm_ft")
 
 
 

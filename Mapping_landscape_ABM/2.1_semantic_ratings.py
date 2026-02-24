@@ -87,9 +87,9 @@ def run_one(prompt: str, num_threads: int, timeout: int, max_retries: int) -> st
 # ----------------------------
 # Paths
 # ----------------------------
-in_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs.csv"
-out_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_ratings.csv"
-audit_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training/train_pairs_ratings_audit.jsonl"
+in_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs.csv"
+out_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_ratings.csv"
+audit_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_ratings_audit.jsonl"
 
 # ----------------------------
 # Prompt content (UPDATED: behavioral agent-based modelling)
