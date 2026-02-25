@@ -17,12 +17,14 @@ module purge
 module load bear-apps/2024a/live
 
 # ----------------------------
-# Big, persistent space for Apptainer build/unpack
+# Big, persistent space for Apptainer build/unpack + cache
+# (avoids HOME quota AND /tmp "no space left on device")
+# ----------------------------
 export APPTAINER_TMPDIR="/rds/projects/z/zhanglp-vwendler-core/apptainer_tmp"
 export APPTAINER_CACHEDIR="/rds/projects/z/zhanglp-vwendler-core/apptainer_cache"
 mkdir -p "$APPTAINER_TMPDIR" "$APPTAINER_CACHEDIR"
 
-# (optional) keep python/matplotlib caches off HOME too
+# Keep matplotlib/python caches off HOME
 export MPLCONFIGDIR="${SLURM_TMPDIR:-/tmp}/mplcache"
 export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
@@ -32,11 +34,13 @@ source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 
 # ----------------------------
-# Ollama model cache on RDS (persistent across jobs)
+# Ollama models: FORCE RDS path (no ~/.ollama symlinks needed)
 # ----------------------------
-mkdir -p /rds/projects/z/zhanglp-vwendler-core/ollama_models
-mkdir -p ~/.ollama
-ln -sfn /rds/projects/z/zhanglp-vwendler-core/ollama_models ~/.ollama/models
+export OLLAMA_MODELS="/rds/projects/z/zhanglp-vwendler-core/ollama_models"
+mkdir -p "$OLLAMA_MODELS"
+
+echo "[INFO] OLLAMA_MODELS=$OLLAMA_MODELS"
+ls -ld "$OLLAMA_MODELS" || true
 
 # ----------------------------
 # Store the Ollama container SIF on RDS (pull once)
@@ -55,14 +59,15 @@ fi
 # ----------------------------
 # Start Ollama (CPU mode; do NOT use --nv)
 # ----------------------------
-apptainer exec "$SIF" ollama serve > "ollama_server.${SLURM_JOB_ID}.log" 2>&1 &
+LOG="ollama_server.${SLURM_JOB_ID}.log"
+apptainer exec "$SIF" ollama serve > "$LOG" 2>&1 &
 OLLAMA_PID=$!
 
 cleanup() { kill "$OLLAMA_PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
 # Wait until Ollama is ready
-for i in {1..90}; do
+for i in {1..120}; do
   if curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
     break
   fi
@@ -71,11 +76,11 @@ done
 
 if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
   echo "[FATAL] Ollama server did not start." >&2
-  tail -n 160 "ollama_server.${SLURM_JOB_ID}.log" || true
+  tail -n 200 "$LOG" || true
   exit 1
 fi
 
-# Pull model only if missing (persistent via ~/.ollama/models -> RDS)
+# Pull model only if missing (stored in $OLLAMA_MODELS on RDS)
 MODEL="llama2:7b"
 if ! apptainer exec "$SIF" ollama list | awk '{print $1}' | grep -qx "$MODEL"; then
   echo "[INFO] Pulling model: $MODEL"
@@ -87,7 +92,7 @@ fi
 # ----------------------------
 # Runtime knobs for your Python script
 # ----------------------------
-export OLLAMA_MODEL="llama2:7b"
+export OLLAMA_MODEL="$MODEL"
 export OLLAMA_THREADS="${SLURM_CPUS_PER_TASK}"
 export OLLAMA_WORKERS=1
 export BATCH_SIZE=20
@@ -102,4 +107,4 @@ export OLLAMA_NUM_CTX=2048
 # Run
 # ----------------------------
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/22.1_semantic_ratings.py
+python Mapping_landscape_ABM/2.1_semantic_ratings.py
