@@ -15,9 +15,10 @@ OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 MODEL = os.environ.get("OLLAMA_MODEL", "llama2:7b")
 
 # ----------------------------
-# Parse: accept Answer=[n] (preferred) and (optionally) Answer=n
+# Parse: accept Answer=[n], Answer=n, Answer: n
+# (handles your observed output: "Answer: 85")
 # ----------------------------
-ANSWER_RE = re.compile(r"^Answer=\[?(\d{1,3})\]?\s*$", re.MULTILINE)
+ANSWER_RE = re.compile(r"^\s*Answer\s*[:=]\s*\[?(\d{1,3})\]?\s*$", re.MULTILINE)
 
 def extract_rating_or_die(text: str) -> int:
     if text is None:
@@ -28,7 +29,7 @@ def extract_rating_or_die(text: str) -> int:
 
     matches = list(ANSWER_RE.finditer(s))
     if not matches:
-        raise RuntimeError(f"Missing final Answer=[n] line. Got (first 300 chars): {s[:300]}")
+        raise RuntimeError(f"Missing Answer line. Got (first 300 chars): {s[:300]}")
 
     val = int(matches[-1].group(1))
     if not (0 <= val <= 100):
@@ -92,17 +93,18 @@ audit_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_tr
 # Prompt content (Answer-only)
 # ----------------------------
 SYSTEM_PROMPT = (
-    "You are an expert in the academic literature on behavioral agent-based modelling (ABM), "
+    "You are an expert in the academic literature on behavioral agent-based modeling (ABM), "
     "who accurately discerns differences in specific research topics."
 )
 
 TASK_DESCRIPTION = """Compare Article 1 and Article 2 based only on their titles and abstracts.
-Both are in behavioral agent-based modelling (ABM).
+Both are in behavioral agent-based modeling (ABM).
 
 Rate how similar their specific research topics are within ABM on a scale 0-100:
 0 = completely different topics
 50 = related but distinct topics
-100 = same topic"""
+100 = same topic
+"""
 
 FORMAT_INSTRUCTIONS = """
 Return ONLY one line exactly in this format (no other text):
@@ -115,7 +117,7 @@ def build_prompt(train: pd.DataFrame, idx: int) -> str:
         "-- Article 1 --\n" + str(train.at[idx, "text_i"]) +
         "\n\n-- Article 2 --\n" + str(train.at[idx, "text_j"])
     )
-    return f"{TASK_DESCRIPTION}\n\n{pair}\n\n{FORMAT_INSTRUCTIONS}\n"
+    return f"{TASK_DESCRIPTION}\n{pair}\n\n{FORMAT_INSTRUCTIONS}\n"
 
 def main():
     ensure_ollama_up_or_die()
@@ -139,12 +141,18 @@ def main():
                 train[col] = base[col]
         if "out" not in train.columns:
             train["out"] = ""
+        if "out_raw" not in train.columns:
+            train["out_raw"] = ""
     else:
         train = base.copy()
         train["out"] = ""
+        train["out_raw"] = ""
 
-    def is_done_out(x):
-        return isinstance(x, str) and ("Answer=" in x)
+    def is_done_out(x: str) -> bool:
+        # done iff we have a standardized Answer=[n] or at least an Answer=... line
+        if not isinstance(x, str):
+            return False
+        return bool(ANSWER_RE.search(x)) or ("Answer=" in x)
 
     done_mask = train["out"].fillna("").astype(str).apply(is_done_out)
     start_idx = int(train.index[~done_mask].min()) if (~done_mask).any() else len(train)
@@ -156,7 +164,7 @@ def main():
     timeout = int(os.environ.get("OLLAMA_TIMEOUT", "1800"))
     max_retries = int(os.environ.get("OLLAMA_RETRIES", "2"))
 
-    print(f"Already completed (Answer=): {done_mask.sum()}", flush=True)
+    print(f"Already completed: {int(done_mask.sum())}", flush=True)
     print(f"Starting at index: {start_idx}", flush=True)
     print(f"workers={workers} batch_size={batch_size} num_threads={num_threads} MAX_PAIRS={max_pairs}", flush=True)
 
@@ -184,18 +192,22 @@ def main():
                     results = list(ex.map(call, prompts))
 
             for k, (i, raw) in enumerate(zip(idxs, results), start=1):
-                rating = extract_rating_or_die(raw)
-                out_line = f"Answer=[{rating}]"
-
-                # Make output compatible with code2 + downstream R
-                train.at[i, "out"] = out_line
+                # ✅ NEW: robust per-row error handling
+                try:
+                    rating = extract_rating_or_die(raw)
+                    out_line = f"Answer=[{rating}]"
+                    train.at[i, "out"] = out_line
+                    train.at[i, "out_raw"] = raw[:500]
+                except Exception as e:
+                    train.at[i, "out"] = f"ERROR: {type(e).__name__}: {str(e)[:120]}"
+                    train.at[i, "out_raw"] = (raw or "")[:500]
 
                 audit_f.write(json.dumps({
                     "row_idx": int(i),
                     "i": int(train.at[i, "i"]) if "i" in train.columns and pd.notna(train.at[i, "i"]) else None,
                     "j": int(train.at[i, "j"]) if "j" in train.columns and pd.notna(train.at[i, "j"]) else None,
-                    "rating": int(rating),
-                    "raw": raw[:300]
+                    "out": str(train.at[i, "out"])[:200],
+                    "raw": (raw or "")[:500],
                 }) + "\n")
 
                 if (k % 20) == 0:
@@ -212,8 +224,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 
 
 
