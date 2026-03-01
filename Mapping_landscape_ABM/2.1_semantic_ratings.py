@@ -127,7 +127,7 @@ def main():
     print(f"Total rows in train_pairs.csv: {len(base)}", flush=True)
 
     # SAFETY CAP (prevents accidental millions)
-    max_pairs = int(os.environ.get("MAX_PAIRS", "50000"))
+    max_pairs = int(os.environ.get("MAX_PAIRS", "20000"))    #should be 50 000 but for speed 20 000
     if len(base) > max_pairs:
         print(f"[WARN] Capping to MAX_PAIRS={max_pairs} (from {len(base)})", flush=True)
         base = base.iloc[:max_pairs].copy()
