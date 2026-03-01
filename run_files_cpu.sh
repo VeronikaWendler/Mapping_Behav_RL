@@ -91,7 +91,7 @@ export OLLAMA_WORKERS=1
 export BATCH_SIZE=20
 export OLLAMA_TIMEOUT=1800
 export OLLAMA_RETRIES=2
-export MAX_PAIRS=50000
+export MAX_PAIRS=20000                                     # can be 50 0000
 export OLLAMA_NUM_PREDICT=32
 export OLLAMA_NUM_CTX=2048
 
