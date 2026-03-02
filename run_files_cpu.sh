@@ -81,7 +81,7 @@ fi
 
 # ---- Pull model (FIXED TAG)
 # NOTE: your earlier tag llama3.3:70b-instruct does not exist in Ollama registry.
-MODEL="${OLLAMA_MODEL:-qwen2.5:14b-instruct}" 
+MODEL="${OLLAMA_MODEL:-gemma3:27b}"  
 echo "[INFO] Pulling model (into $OLLAMA_MODELS): $MODEL"
 apptainer exec --bind "$BIND" "$SIF" ollama pull "$MODEL"
 apptainer exec --bind "$BIND" "$SIF" ollama list || true
@@ -100,4 +100,4 @@ echo "[INFO] Runtime env:"
 env | egrep "OLLAMA_|MAX_PAIRS|BATCH_SIZE" | sort
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/2.0_select_pairs.py
+python Mapping_landscape_ABM/2.1_semantic_ratings.py

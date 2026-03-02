@@ -13,7 +13,7 @@ import pandas as pd
 # Ollama local
 # ----------------------------
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
-MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:14b-instruct")  # match what you pull in the .sh
+MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:27b")  
 
 # ----------------------------
 # Output parsing: accepts Answer=[n], Answer=n, Answer: n
@@ -100,37 +100,42 @@ def run_one(prompt: str, timeout: int, max_retries: int) -> str:
 # ----------------------------
 # Paths
 # ----------------------------
-in_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs.csv"
-out_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_ratings.csv"
-audit_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_ratings_audit.jsonl"
+in_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_10k.csv"
+out_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_10k_ratings.csv"
+audit_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_10k_ratings_audit.jsonl"
 
 # ----------------------------
 # Prompt content (close to researchers; one-sentence reasoning)
 # ----------------------------
 SYSTEM_PROMPT = (
-    "You are an expert in the academic literature on behavioral agent-based modeling (ABM), "
-    "who accurately discerns differences in specific research topics."
+    "You are an expert in the academic literature on behavioral agent-based modeling (ABM), who accurately discerns differences in specific research topics."
 )
 
 TASK_DESCRIPTION = """Your primary task is to compare the following two articles (Article 1 and Article 2) based *only* on their provided titles and abstracts.
 
-Both articles use or discuss agent-based modeling (ABM), but IMPORTANT: sharing ABM as a method does NOT imply similar research topics.
+Both articles operate within the general field of behavioral agent-based modelling (ABM).
 
-Your goal is to determine how similar their *specific research topics* are within behavioral ABM.
-Do they investigate the same domain problem, behavioral mechanism, or research question?
+But IMPORTANT: sharing ABM as a method does NOT imply similar research topics.
+
+Your goal is to determine how similar their *specific research topics* are within the ABM context. Do they investigate the same sub-problem, mechanism, or research question?
 """
 
 FORMAT_INSTRUCTIONS = """
-First, provide exactly ONE sentence of reasoning (no bullet points, no headings).
-Second, output the numerical rating on a new line.
+Write exactly TWO lines and nothing else.
+Line 1: One sentence (max 25 words) briefly comparing the specific research topics, mechanisms, or research questions in the two abstracts, highlighting key similarities or differences (just sharing ABM as a method does NOT count).
+Line 2: Answer=[0-100]
 
 Rate the similarity of the specific research topics on a continuous scale from 0 to 100:
-* 0: Completely different specific research topics (only both using ABM is NOT similarity).
-* 50: The articles share significant common ground but address distinct specific topics.
-* 100: The articles address the same specific research topic.
+0  = Completely different specific research topics within ABM (sharing ABM as a method does NOT count).
+50 = The articles share significant common ground but ultimately address distinct specific research topics within ABM.
+100= The articles address the same specific research topic within ABM.
 
 Strictly format the rating line *exactly* like this, with no extra text before or after:
 Answer=[rating]
+
+Important formatting rules:
+- Line 2 must be exactly: Answer=[rating]
+- rating must be an integer from 0 to 100
 """.strip()
 
 def clean_text(x) -> str:
