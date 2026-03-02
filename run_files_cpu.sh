@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=1000_semantic_net_
+#SBATCH --job-name=1000_2_semantic_net_
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbdefault
 #SBATCH --cpus-per-task=32
@@ -96,4 +96,4 @@ export OLLAMA_NUM_PREDICT=32
 export OLLAMA_NUM_CTX=2048
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/2.1_semantic_ratings.py
+Rscript Mapping_landscape_ABM/2_semantic_net.R
