@@ -100,4 +100,4 @@ echo "[INFO] Runtime env:"
 env | egrep "OLLAMA_|MAX_PAIRS|BATCH_SIZE" | sort
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/2.1_semantic_ratings.py
+python Mapping_landscape_ABM/2.0_select_pairs.py
