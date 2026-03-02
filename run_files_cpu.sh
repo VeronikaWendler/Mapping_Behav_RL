@@ -79,21 +79,23 @@ if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
 fi
 
 # ---- Pull model
-MODEL="llama2:7b"
+MODEL="${OLLAMA_MODEL:-llama3.3:70b-instruct}"
 echo "[INFO] Pulling model (into $OLLAMA_MODELS): $MODEL"
 apptainer exec --bind "$BIND" "$SIF" ollama pull "$MODEL"
 apptainer exec --bind "$BIND" "$SIF" ollama list || true
 
 # ---- Runtime knobs for Python
-export OLLAMA_MODEL="$MODEL"
-export OLLAMA_THREADS="${SLURM_CPUS_PER_TASK}"
-export OLLAMA_WORKERS=1
+export OLLAMA_MODEL="$MODEL"     # critical: ensures Python uses 70B, not llama2:7b
+export MAX_PAIRS=10000          # cap pairs
+
+# Optional (not bias; just robustness/performance)
 export BATCH_SIZE=20
-export OLLAMA_TIMEOUT=1800
+export OLLAMA_TIMEOUT=600
 export OLLAMA_RETRIES=2
-export MAX_PAIRS=20000                                     # can be 50 0000
-export OLLAMA_NUM_PREDICT=32
-export OLLAMA_NUM_CTX=2048
+export OLLAMA_WORKERS=1
+
+echo "[INFO] Runtime env:"
+env | egrep "OLLAMA_|MAX_PAIRS|BATCH_SIZE" | sort
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/2.2_sbert_training.py
+python Mapping_landscape_ABM/2.1_semantic_ratings.py
