@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=1000_2_2_sbert_training_
+#SBATCH --job-name=1000_corrected_sem_ratings_
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbdefault
 #SBATCH --cpus-per-task=32
@@ -21,8 +21,8 @@ export APPTAINER_TMPDIR="/rds/projects/z/zhanglp-vwendler-core/apptainer_tmp"
 export APPTAINER_CACHEDIR="/rds/projects/z/zhanglp-vwendler-core/apptainer_cache"
 mkdir -p "$APPTAINER_TMPDIR" "$APPTAINER_CACHEDIR"
 
-# ---- Define a scratch directory even if SLURM_TMPDIR is not set
-SCRATCH="${SLURM_TMPDIR:-/tmp/${USER}/slurm_${SLURM_JOB_ID}}"
+# ---- Use an RDS-backed "tmp" (big) for this job, NOT Linux /tmp (tiny on your logs)
+SCRATCH="/rds/projects/z/zhanglp-vwendler-core/tmp/${USER}/slurm_${SLURM_JOB_ID}"
 mkdir -p "$SCRATCH"
 
 # ---- Python hygiene
@@ -46,18 +46,19 @@ else
   echo "[INFO] Using existing container: $SIF"
 fi
 
-# ---- Ollama models go to SCRATCH (always writable)
+# ---- Ollama models go to RDS scratch (must have tens of GB free for 70B)
 export OLLAMA_MODELS="$SCRATCH/ollama_models"
 mkdir -p "$OLLAMA_MODELS"
+
 echo "[INFO] SCRATCH=$SCRATCH"
 echo "[INFO] OLLAMA_MODELS=$OLLAMA_MODELS"
-df -h "$SCRATCH" || true
+df -h "/rds/projects/z/zhanglp-vwendler-core" || true
 
 # ---- Bind host paths into container
 BIND="/rds:/rds,/tmp:/tmp"
 
 # ---- Start Ollama
-LOG="ollama_server.${SLURM_JOB_ID}.log"
+LOG="$SCRATCH/ollama_server.${SLURM_JOB_ID}.log"
 apptainer exec --bind "$BIND" "$SIF" ollama serve > "$LOG" 2>&1 &
 OLLAMA_PID=$!
 
@@ -65,7 +66,7 @@ cleanup() { kill "$OLLAMA_PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
 # ---- Wait for Ollama
-for i in {1..120}; do
+for i in {1..180}; do
   if curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
     break
   fi
@@ -78,17 +79,18 @@ if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
   exit 1
 fi
 
-# ---- Pull model
-MODEL="${OLLAMA_MODEL:-llama3.3:70b-instruct}"
+# ---- Pull model (FIXED TAG)
+# NOTE: your earlier tag llama3.3:70b-instruct does not exist in Ollama registry.
+MODEL="${OLLAMA_MODEL:-llama3.3:70b}"
 echo "[INFO] Pulling model (into $OLLAMA_MODELS): $MODEL"
 apptainer exec --bind "$BIND" "$SIF" ollama pull "$MODEL"
 apptainer exec --bind "$BIND" "$SIF" ollama list || true
 
-# ---- Runtime knobs for Python
-export OLLAMA_MODEL="$MODEL"     # critical: ensures Python uses 70B, not llama2:7b
-export MAX_PAIRS=10000          # cap pairs
+# ---- Runtime settings for Python (minimal)
+export OLLAMA_MODEL="$MODEL"   # ensures Python uses the same model you pulled
+export MAX_PAIRS=10000
 
-# Optional (not bias; just robustness/performance)
+# Optional: not "bias", just stability/performance
 export BATCH_SIZE=20
 export OLLAMA_TIMEOUT=600
 export OLLAMA_RETRIES=2

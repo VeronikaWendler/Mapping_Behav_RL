@@ -13,7 +13,8 @@ import pandas as pd
 # Ollama local
 # ----------------------------
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
-MODEL = os.environ.get("OLLAMA_MODEL", "llama3.3:70b-instruct")
+MODEL = os.environ.get("OLLAMA_MODEL", "llama3.3:70b")  # match what you pull in the .sh
+
 # ----------------------------
 # Output parsing: accepts Answer=[n], Answer=n, Answer: n
 # ----------------------------
@@ -70,14 +71,14 @@ def atomic_write_csv(df: pd.DataFrame, path: str):
 def run_one(prompt: str, timeout: int, max_retries: int) -> str:
     """
     One request with retry/backoff.
-    (use server/model defaults).
+    IMPORTANT: We do NOT set temperature/num_predict/num_ctx etc.
+    We use server/model defaults (like the researchers' hosted API code).
     """
     payload = {
         "model": MODEL,
         "system": SYSTEM_PROMPT,
         "prompt": prompt,
         "stream": False,
-        # NOTE: no "options" block on purpose
     }
 
     for attempt in range(max_retries):
@@ -107,7 +108,8 @@ audit_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_tr
 # Prompt content (close to researchers; one-sentence reasoning)
 # ----------------------------
 SYSTEM_PROMPT = (
-    "You are an expert in the academic literature on behavioral agent-based modeling (ABM), who accurately discerns differences in specific research topics."
+    "You are an expert in the academic literature on behavioral agent-based modeling (ABM), "
+    "who accurately discerns differences in specific research topics."
 )
 
 TASK_DESCRIPTION = """Your primary task is to compare the following two articles (Article 1 and Article 2) based *only* on their provided titles and abstracts.
@@ -175,7 +177,6 @@ def main():
     # Resume if exists
     if os.path.exists(out_path):
         train = pd.read_csv(out_path, engine="python", on_bad_lines="error")
-        # Ensure base columns exist
         for col in base.columns:
             if col not in train.columns:
                 train[col] = base[col]
@@ -197,7 +198,7 @@ def main():
     done_mask = train["out"].fillna("").astype(str).apply(is_done_out)
     start_idx = int(train.index[~done_mask].min()) if (~done_mask).any() else len(train)
 
-    # Performance knobs (only batching/threads/workers/timeouts; no decoding knobs)
+    # Runtime knobs
     workers = int(os.environ.get("OLLAMA_WORKERS", "1"))
     batch_size = int(os.environ.get("BATCH_SIZE", "20"))
     timeout = int(os.environ.get("OLLAMA_TIMEOUT", "600"))
@@ -239,7 +240,7 @@ def main():
             if not idxs:
                 continue
 
-            # Skip rows with missing text (prevents garbage ratings + saves time)
+            # Skip rows with missing text
             filtered = []
             for i in idxs:
                 t1 = clean_text(train.at[i, "text_i"])
@@ -273,7 +274,6 @@ def main():
             err = 0
 
             for k, (i, raw) in enumerate(zip(idxs, results), start=1):
-                # Print a few samples per batch so you can inspect anytime
                 if k <= 3:
                     sample = (raw or "").strip().replace("\n", " | ")
                     print(f"[SAMPLE row={i}] {sample[:260]}", flush=True)
@@ -281,9 +281,8 @@ def main():
                 try:
                     rating = extract_rating_or_die(raw)
                     reason = extract_one_sentence_reasoning(raw)
-
                     train.at[i, "out"] = f"Answer=[{rating}]"
-                    train.at[i, "out_raw"] = reason  # store ONLY the one-sentence reasoning
+                    train.at[i, "out_raw"] = reason
                     ok += 1
                 except Exception as e:
                     train.at[i, "out"] = f"ERROR: {type(e).__name__}: {str(e)[:120]}"
@@ -313,7 +312,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 
