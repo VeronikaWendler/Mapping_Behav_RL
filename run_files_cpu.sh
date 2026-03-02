@@ -81,7 +81,7 @@ fi
 
 # ---- Pull model (FIXED TAG)
 # NOTE: your earlier tag llama3.3:70b-instruct does not exist in Ollama registry.
-MODEL="${OLLAMA_MODEL:-llama3.3:70b}"
+MODEL="${OLLAMA_MODEL:-qwen2.5:14b-instruct}" 
 echo "[INFO] Pulling model (into $OLLAMA_MODELS): $MODEL"
 apptainer exec --bind "$BIND" "$SIF" ollama pull "$MODEL"
 apptainer exec --bind "$BIND" "$SIF" ollama list || true

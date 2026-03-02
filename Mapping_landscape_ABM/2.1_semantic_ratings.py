@@ -13,7 +13,7 @@ import pandas as pd
 # Ollama local
 # ----------------------------
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
-MODEL = os.environ.get("OLLAMA_MODEL", "llama3.3:70b")  # match what you pull in the .sh
+MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:14b-instruct")  # match what you pull in the .sh
 
 # ----------------------------
 # Output parsing: accepts Answer=[n], Answer=n, Answer: n
