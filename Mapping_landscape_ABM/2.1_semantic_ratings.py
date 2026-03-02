@@ -13,7 +13,7 @@ import pandas as pd
 # Ollama local
 # ----------------------------
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
-MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:27b")  
+MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b-instruct")  
 
 # ----------------------------
 # Output parsing: accepts Answer=[n], Answer=n, Answer: n
