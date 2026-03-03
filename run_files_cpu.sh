@@ -2,7 +2,7 @@
 #SBATCH --job-name=1000_corrected_sem_ratings_
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbdefault
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=8
 #SBATCH --mem=128G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/%x.%j.out
@@ -58,6 +58,9 @@ df -h "/rds/projects/z/zhanglp-vwendler-core" || true
 BIND="/rds:/rds,/tmp:/tmp"
 
 export OLLAMA_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+export OLLAMA_NUM_THREADS=8
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
 # ---- Start Ollama
 LOG="$SCRATCH/ollama_server.${SLURM_JOB_ID}.log"
 apptainer exec --bind "$BIND" "$SIF" ollama serve > "$LOG" 2>&1 &
@@ -86,6 +89,15 @@ MODEL="${OLLAMA_MODEL:-qwen2.5:7b-instruct}"
 echo "[INFO] Pulling model (into $OLLAMA_MODELS): $MODEL"
 apptainer exec --bind "$BIND" "$SIF" ollama pull "$MODEL"
 apptainer exec --bind "$BIND" "$SIF" ollama list || true
+
+# ---- Quick sanity check that GENERATE works (not only /api/tags)
+echo "[TEST] quick generate"
+curl -s http://127.0.0.1:11434/api/generate \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"'"$MODEL"'","prompt":"Write exactly two lines.\nLine1: OK.\nLine2: Answer=[0]","stream":false,"options":{"num_predict":40,"temperature":0}}' \
+  | head -c 400; echo
+
+echo "[TEST] done"
 
 # ---- Runtime settings for Python (minimal)
 export OLLAMA_MODEL="$MODEL"   # ensures Python uses the same model you pulled
