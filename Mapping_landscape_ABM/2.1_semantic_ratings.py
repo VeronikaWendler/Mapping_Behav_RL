@@ -76,7 +76,6 @@ def openai_call(user_prompt: str, timeout: int, max_retries: int) -> str:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        "temperature": 0,
         "max_tokens": 120,   # short 2-line output
         "stream": False,
         "store": False,       # optional (reduce storage)
@@ -130,7 +129,6 @@ TASK_DESCRIPTION = (
     "Your primary task is to compare the following two articles (Article 1 and Article 2) "
     "based *only* on their provided titles and abstracts. Both articles operate within the "
     "general field of behavioral agent-based modelling (ABM).\n\n"
-    "But IMPORTANT: sharing ABM as a method does NOT imply similar research topics. "
     "Your goal is to determine how similar their *specific research topics* are within the ABM context. "
     "Do they investigate the same sub-problem, mechanism, or research question?"
 )
@@ -144,10 +142,12 @@ Line 2: Answer=[N]
 Where:
 N is an integer from 0 to 100.
 
-Scoring:
+Rate the similarity of the specific research topics on a scale from 0 to 100.
+Use the FULL range (do not only use 0, 50, and 100). The anchor points below are guides, not the only allowed values.
+
 0   = Completely different specific research topics within ABM.
-50  = Significant common ground but distinct specific topics within ABM.
-100 = Same specific research topic within ABM.
+50  = The articles share significant common ground but ultimately address distinct specific research topics within ABM.
+100 = The articles address the same specific research topic within ABM.
 
 Do not add labels, headings, or extra text.
 """.strip()
@@ -160,15 +160,15 @@ def clean_text(x) -> str:
     s = str(x).strip()
     return "" if s.lower() == "nan" else s
 
-def truncate_text(s: str, max_chars: int = 1200) -> str:
+def truncate_text(s: str, max_chars: int = 1600) -> str:
     s = clean_text(s)
     if len(s) <= max_chars:
         return s
     return s[:max_chars] + "\n[TRUNCATED]"
 
 def build_prompt(df: pd.DataFrame, idx: int) -> str:
-    t1 = truncate_text(df.at[idx, "text_i"], max_chars=1200)
-    t2 = truncate_text(df.at[idx, "text_j"], max_chars=1200)
+    t1 = truncate_text(df.at[idx, "text_i"], max_chars=1600)
+    t2 = truncate_text(df.at[idx, "text_j"], max_chars=1600)
     pair = f"-- Article 1 --\n{t1}\n\n-- Article 2 --\n{t2}"
     return f"{TASK_DESCRIPTION}\n\nHere are the articles to evaluate:\n\n{pair}\n\n{FORMAT_INSTRUCTIONS}\n"
 
@@ -230,12 +230,13 @@ def main():
     os.makedirs(os.path.dirname(audit_path), exist_ok=True)
     audit_f = open(audit_path, "a", encoding="utf-8")
 
-    # Smoke test
     smoke_prompt = (
         f"{TASK_DESCRIPTION}\n\nHere are the articles to evaluate:\n\n"
-        f"-- Article 1 --\nTitle: A\nAbstract: A\n\n-- Article 2 --\nTitle: B\nAbstract: B\n\n"
+        f"-- Article 1 --\nTitle: Agent-based model of vaccine uptake\nAbstract: We simulate vaccine hesitancy and peer influence on vaccination decisions.\n\n"
+        f"-- Article 2 --\nTitle: ABM of vaccination behavior and social influence\nAbstract: We model vaccine adoption under social network influence and hesitancy.\n\n"
         f"{FORMAT_INSTRUCTIONS}\n"
     )
+
     smoke_raw = openai_call(smoke_prompt, timeout=timeout, max_retries=max_retries)
     print("[SMOKE] raw:", repr(smoke_raw[:220]), flush=True)
     try:
