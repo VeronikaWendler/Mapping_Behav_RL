@@ -81,8 +81,10 @@ def run_one(prompt: str, timeout: int, max_retries: int) -> str:
         "prompt": prompt,
         "stream": False,
         "options": {
-        "stop": ["\n\n"]}
-        }
+        "num_predict": 80,   
+        "temperature": 0     
+    }
+}
 
     for attempt in range(max_retries):
         try:
