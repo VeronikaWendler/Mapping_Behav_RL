@@ -25,7 +25,7 @@ export OPENAI_URL="https://api.openai.com/v1/chat/completions"
 
 export MAX_PAIRS=10000
 export BATCH_SIZE=100
-export WORKERS=10
+export WORKERS=6
 export TIMEOUT=120
 export RETRIES=6
 

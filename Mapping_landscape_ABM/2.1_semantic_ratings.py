@@ -88,6 +88,7 @@ def openai_call(user_prompt: str, timeout: int, max_retries: int) -> str:
             r = requests.post(OPENAI_URL, headers=HEADERS, json=payload, timeout=(10, timeout))
 
             if r.status_code in (429, 500, 502, 503, 504):
+                last_err = RuntimeError(f"HTTP {r.status_code}: {r.text[:200]}")
                 ra = r.headers.get("retry-after")
                 sleep_s = float(ra) if ra else min(60, (2 ** attempt) + random.random())
                 time.sleep(sleep_s)
@@ -237,7 +238,7 @@ def main():
     start_idx = int(train.index[~done_mask].min()) if (~done_mask).any() else len(train)
 
     # Runtime knobs
-    workers = int(os.environ.get("WORKERS", "10"))
+    workers = int(os.environ.get("WORKERS", "6"))
     batch_size = int(os.environ.get("BATCH_SIZE", "100"))
     timeout = int(os.environ.get("TIMEOUT", "120"))
     max_retries = int(os.environ.get("RETRIES", "6"))
