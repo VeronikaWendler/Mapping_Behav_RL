@@ -236,7 +236,7 @@ def main():
     done_mask = train["out"].fillna("").astype(str).apply(is_done_out)
     start_idx = int(train.index[~done_mask].min()) if (~done_mask).any() else len(train)
 
-    # Runtime knobs (Groq)
+    # Runtime knobs
     workers = int(os.environ.get("WORKERS", "10"))
     batch_size = int(os.environ.get("BATCH_SIZE", "100"))
     timeout = int(os.environ.get("TIMEOUT", "120"))
@@ -248,14 +248,18 @@ def main():
     print(f"timeout={timeout} retries={max_retries}", flush=True)
 
     stats = RunningStats()
+    missing_answer = 0
+    parse_fail = 0
 
     os.makedirs(os.path.dirname(audit_path), exist_ok=True)
     audit_f = open(audit_path, "a", encoding="utf-8")
 
     smoke_prompt = (
         f"{TASK_DESCRIPTION}\n\nHere are the articles to evaluate:\n\n"
-        f"-- Article 1 --\nTitle: Agent-based model of vaccine uptake\nAbstract: We simulate vaccine hesitancy and peer influence on vaccination decisions.\n\n"
-        f"-- Article 2 --\nTitle: ABM of vaccination behavior and social influence\nAbstract: We model vaccine adoption under social network influence and hesitancy.\n\n"
+        f"-- Article 1 --\nTitle: Agent-based model of vaccine uptake\n"
+        f"Abstract: We simulate vaccine hesitancy and peer influence on vaccination decisions.\n\n"
+        f"-- Article 2 --\nTitle: ABM of vaccination behavior and social influence\n"
+        f"Abstract: We model vaccine adoption under social network influence and hesitancy.\n\n"
         f"{FORMAT_INSTRUCTIONS}\n"
     )
 
@@ -298,7 +302,6 @@ def main():
 
             prompts = [build_prompt(train, i) for i in idxs]
 
-
             def call(p: str) -> str:
                 return openai_call(p, timeout=timeout, max_retries=max_retries)
 
@@ -319,6 +322,8 @@ def main():
                     sample = (raw or "").strip().replace("\n", " | ")
                     print(f"[SAMPLE row={i}] {sample[:260]}", flush=True)
 
+                final_raw = raw  # what we'll write to audit (might become raw_retry)
+
                 try:
                     rating = extract_rating_or_die(raw)
                     reason = extract_one_sentence_reasoning(raw)
@@ -327,16 +332,41 @@ def main():
                     ok += 1
 
                 except Exception as e:
-                    train.at[i, "out"] = f"ERROR: {type(e).__name__}: {str(e)[:120]}"
                     err += 1
+                    raw_s = (raw or "")
 
+                    # Case: output mentions "Answer" but doesn't match the full Answer=[N] line
+                    if "Answer" in raw_s and not ANSWER_RE.search(raw_s):
+                        raw_retry = openai_call(build_prompt(train, i), timeout=timeout, max_retries=2)
+                        final_raw = raw_retry
+
+                        if ANSWER_RE.search(raw_retry):
+                            rating = extract_rating_or_die(raw_retry)
+                            reason = extract_one_sentence_reasoning(raw_retry)
+                            train.at[i, "out"] = f"{reason}\nAnswer=[{rating}]"
+                            stats.add(rating)
+                            ok += 1
+                            err -= 1  # recovered
+                        else:
+                            missing_answer += 1
+                            train.at[i, "out"] = "ERROR: missing_or_truncated_answer"
+                            if missing_answer <= 5:
+                                tail = (raw_retry or "")[-120:].replace("\n", " | ")
+                                print(f"[WARN] missing Answer at row={i} after retry: {tail}", flush=True)
+
+                    else:
+                        # Real parse failure (not truncation)
+                        parse_fail += 1
+                        train.at[i, "out"] = f"ERROR: {type(e).__name__}: {str(e)[:120]}"
+
+                # Audit (use final_raw so retry is captured correctly)
                 audit_f.write(json.dumps({
                     "row_idx": int(i),
                     "i": int(train.at[i, "i"]) if "i" in train.columns and pd.notna(train.at[i, "i"]) else None,
                     "j": int(train.at[i, "j"]) if "j" in train.columns and pd.notna(train.at[i, "j"]) else None,
                     "out": str(train.at[i, "out"])[:200],
-                    "reason": extract_one_sentence_reasoning(raw)[:240],
-                    "raw": (raw or "")[:500],
+                    "reason": extract_one_sentence_reasoning(final_raw)[:240],
+                    "raw": (final_raw or "")[:500],
                 }) + "\n")
 
             audit_f.flush()
@@ -346,6 +376,7 @@ def main():
             rate = (len(idxs) / dt) if dt > 0 else 0
             print(f"[DONE] rows {begin}..{end-1} | ok={ok} err={err} | {dt:.1f}s | {rate:.2f} rows/s", flush=True)
             print(f"[STATS] n={stats.n} mean={stats.mean:.2f} std={stats.std():.2f}", flush=True)
+            print(f"[QUALITY] ok={ok} err={err} missing_answer_total={missing_answer} parse_fail_total={parse_fail}", flush=True)
 
     finally:
         audit_f.close()
