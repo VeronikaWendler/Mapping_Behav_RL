@@ -157,7 +157,7 @@ TASK_DESCRIPTION = (
 FORMAT_INSTRUCTIONS = """
 Return exactly TWO lines.
 
-Line 1: One sentence (maximal 40 words not more) explaining the key similarity or difference in the specific research topic/mechanism/question and application domain within ABM.
+Line 1: One sentence (maximal 40 words not more) explaining the key similarity or difference in the specific research topic/mechanism/question and application domain within ABM. Rembember that the wordcount of max 40 includes your Line 2 Answer=[N], so make sure to have enough words to still produce a rating for the answer in line 2.
 Line 2: Answer=[N]
 
 Where:
