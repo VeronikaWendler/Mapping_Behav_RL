@@ -81,15 +81,6 @@ def run_one(prompt: str, timeout: int, max_retries: int) -> str:
         "prompt": prompt,
         "stream": False,
         "options": {
-        "stop": ["\n\n"]}
-        }
-
-    payload = {
-        "model": MODEL,
-        "system": SYSTEM_PROMPT,
-        "prompt": prompt,
-        "stream": False,
-        "options": {
             "num_predict": 80,  
             "temperature": 0
             }  
