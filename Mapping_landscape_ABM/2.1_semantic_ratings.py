@@ -157,14 +157,14 @@ TASK_DESCRIPTION = (
 FORMAT_INSTRUCTIONS = """
 Return exactly TWO lines.
 
-Line 1: One sentence (max 40 words) explaining the key similarity or difference in the specific research topic/mechanism/question.
+Line 1: One sentence (max 40 words) explaining the key similarity or difference in the specific research topic/mechanism/question and application domain within ABM. Base the score on concrete overlap in entities, domain, and modeled behaviors explicitly mentioned in the abstracts.
 Line 2: Answer=[N]
 
 Where:
 N is an integer from 0 to 100.
 
 Rate the similarity of the specific research topics on a scale from 0 to 100.
-Use the FULL range (do not only use 0, 50, and 100). The anchor points below are guides, not the only allowed values.
+Use the FULL range from 0 to 100 (do not only use 0, 50, and 100). The anchor points below are guides, not the only allowed values.
 
 0   = Completely different specific research topics within ABM.
 50  = The articles share significant common ground but ultimately address distinct specific research topics within ABM.
