@@ -8,6 +8,7 @@ import signal
 import requests
 import concurrent.futures
 import pandas as pd
+import math
 
 
 # ============================================================
@@ -109,6 +110,25 @@ def openai_call(user_prompt: str, timeout: int, max_retries: int) -> str:
             time.sleep(min(60, (2 ** attempt) + random.random()))
 
     raise RuntimeError(f"max_retries_exceeded; last_err={last_err}")
+
+
+class RunningStats:
+    def __init__(self):
+        self.n = 0
+        self.mean = 0.0
+        self.M2 = 0.0  
+
+    def add(self, x: float):
+        self.n += 1
+        delta = x - self.mean
+        self.mean += delta / self.n
+        delta2 = x - self.mean
+        self.M2 += delta * delta2
+
+    def std(self) -> float:
+        if self.n < 2:
+            return 0.0
+        return math.sqrt(self.M2 / (self.n - 1))
 # ============================================================
 # Paths
 # ============================================================
@@ -227,6 +247,8 @@ def main():
     print(f"workers={workers} batch_size={batch_size} MAX_PAIRS={max_pairs}", flush=True)
     print(f"timeout={timeout} retries={max_retries}", flush=True)
 
+    stats = RunningStats()
+
     os.makedirs(os.path.dirname(audit_path), exist_ok=True)
     audit_f = open(audit_path, "a", encoding="utf-8")
 
@@ -301,6 +323,7 @@ def main():
                     rating = extract_rating_or_die(raw)
                     reason = extract_one_sentence_reasoning(raw)
                     train.at[i, "out"] = f"{reason}\nAnswer=[{rating}]"
+                    stats.add(rating)
                     ok += 1
 
                 except Exception as e:
@@ -322,6 +345,7 @@ def main():
             dt = time.time() - t0
             rate = (len(idxs) / dt) if dt > 0 else 0
             print(f"[DONE] rows {begin}..{end-1} | ok={ok} err={err} | {dt:.1f}s | {rate:.2f} rows/s", flush=True)
+            print(f"[STATS] n={stats.n} mean={stats.mean:.2f} std={stats.std():.2f}", flush=True)
 
     finally:
         audit_f.close()
