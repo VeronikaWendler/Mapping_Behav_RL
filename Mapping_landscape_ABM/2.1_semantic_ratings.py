@@ -157,7 +157,7 @@ TASK_DESCRIPTION = (
 FORMAT_INSTRUCTIONS = """
 Return exactly TWO lines.
 
-Line 1: One sentence (max 40 words) explaining the key similarity or difference in the specific research topic/mechanism/question and application domain within ABM. Base the score on concrete overlap in entities, domain, and modeled behaviors explicitly mentioned in the abstracts.
+Line 1: One sentence (maximal 40 words not more) explaining the key similarity or difference in the specific research topic/mechanism/question and application domain within ABM.
 Line 2: Answer=[N]
 
 Where:
