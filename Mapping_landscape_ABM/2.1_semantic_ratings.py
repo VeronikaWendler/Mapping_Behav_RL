@@ -74,12 +74,15 @@ def run_one(prompt: str, timeout: int, max_retries: int) -> str:
     IMPORTANT: We do NOT set temperature/num_predict/num_ctx etc.
     We use server/model defaults (like the researchers' hosted API code).
     """
+
     payload = {
         "model": MODEL,
         "system": SYSTEM_PROMPT,
         "prompt": prompt,
         "stream": False,
-    }
+        "options": {
+        "stop": ["\n\n"]}
+        }
 
     for attempt in range(max_retries):
         try:
@@ -109,34 +112,48 @@ audit_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_tr
 # ----------------------------
 SYSTEM_PROMPT = (
     "You are an expert in the academic literature on behavioral agent-based modeling (ABM), who accurately discerns differences in specific research topics."
+    "Follow the output format exactly; do not add any extra text."
 )
 
-TASK_DESCRIPTION = """Your primary task is to compare the following two articles (Article 1 and Article 2) based *only* on their provided titles and abstracts.
+TASK_DESCRIPTION = """Your primary task is to compare the following two articles (Article 1 and Article 2) based *only* on their provided titles and abstracts.Both articles operate within the general field of behavioral agent-based modelling (ABM).
+But IMPORTANT: sharing ABM as a method does NOT imply similar research topics. Your goal is to determine how similar their *specific research topics* are within the ABM context. Do they investigate the same sub-problem, mechanism, or research question?
+# """
 
-Both articles operate within the general field of behavioral agent-based modelling (ABM).
+# FORMAT_INSTRUCTIONS = """
+# Write exactly TWO lines and nothing else.
+# Line 1: One sentence (max 40 words) briefly comparing the specific research topics, mechanisms, or research questions in the two abstracts, highlighting key similarities or differences (just sharing ABM as a method does NOT count).
+# Line 2: Answer=[0-100]
 
-But IMPORTANT: sharing ABM as a method does NOT imply similar research topics.
+# Rate the similarity of the specific research topics on a continuous scale from 0 to 100:
+# 0  = Completely different specific research topics within ABM (sharing ABM as a method does NOT count).
+# 50 = The articles share significant common ground but ultimately address distinct specific research topics within ABM.
+# 100= The articles address the same specific research topic within ABM.
 
-Your goal is to determine how similar their *specific research topics* are within the ABM context. Do they investigate the same sub-problem, mechanism, or research question?
-"""
+# Strictly format the rating line *exactly* like this, with no extra text before or after:
+# Answer=[rating]
+
+# Important formatting rules:
+# - Line 2 must be exactly: Answer=[rating]
+# - rating must be an integer from 0 to 100
+# """.strip()
+
 
 FORMAT_INSTRUCTIONS = """
-Write exactly TWO lines and nothing else.
-Line 1: One sentence (max 25 words) briefly comparing the specific research topics, mechanisms, or research questions in the two abstracts, highlighting key similarities or differences (just sharing ABM as a method does NOT count).
-Line 2: Answer=[0-100]
+Return exactly TWO lines.
 
-Rate the similarity of the specific research topics on a continuous scale from 0 to 100:
-0  = Completely different specific research topics within ABM (sharing ABM as a method does NOT count).
-50 = The articles share significant common ground but ultimately address distinct specific research topics within ABM.
-100= The articles address the same specific research topic within ABM.
+Line 1: One sentence (max 40 words) explaining the key similarity or difference in the specific research topic/mechanism/question.
+Line 2: Answer=[N]
 
-Strictly format the rating line *exactly* like this, with no extra text before or after:
-Answer=[rating]
+Where:
+N is an integer from 0 to 100.
 
-Important formatting rules:
-- Line 2 must be exactly: Answer=[rating]
-- rating must be an integer from 0 to 100
-""".strip()
+Scoring:
+0   = Completely different specific research topics within ABM.
+50  = Significant common ground but distinct specific topics within ABM.
+100 = Same specific research topic within ABM.
+
+Do not add labels, headings, or extra text.
+"""
 
 def clean_text(x) -> str:
     if x is None:
@@ -148,9 +165,21 @@ def clean_text(x) -> str:
         return ""
     return s
 
+def truncate_text(s: str, max_chars: int = 4000) -> str:
+    """
+    Keep prompts within context budget.
+    Truncates only if needed; adds a marker so you know it happened.
+    4000 chars is usually plenty for Title+Abstract.
+    """
+    s = clean_text(s)
+    if len(s) <= max_chars:
+        return s
+    return s[:max_chars] + "\n[TRUNCATED]"
+
 def build_prompt(train: pd.DataFrame, idx: int) -> str:
-    t1 = clean_text(train.at[idx, "text_i"])
-    t2 = clean_text(train.at[idx, "text_j"])
+    t1 = truncate_text(train.at[idx, "text_i"], max_chars=4000)
+    t2 = truncate_text(train.at[idx, "text_j"], max_chars=4000)
+
     pair = f"-- Article 1 --\n{t1}\n\n-- Article 2 --\n{t2}"
     return f"{TASK_DESCRIPTION}\n\nHere are the articles to evaluate:\n\n{pair}\n\n{FORMAT_INSTRUCTIONS}\n"
 
