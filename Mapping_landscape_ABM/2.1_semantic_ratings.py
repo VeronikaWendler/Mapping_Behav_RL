@@ -9,15 +9,25 @@ import requests
 import concurrent.futures
 import pandas as pd
 
-# ----------------------------
-# Ollama local
-# ----------------------------
-OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
-MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b-instruct")  
 
-# ----------------------------
+# ============================================================
+# OpenAI config
+# ============================================================
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+if not OPENAI_API_KEY:
+    raise SystemExit("[FATAL] OPENAI_API_KEY is not set in environment.")
+
+OPENAI_URL = os.environ.get("OPENAI_URL", "https://api.openai.com/v1/chat/completions")
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+HEADERS = {
+    "Authorization": f"Bearer {OPENAI_API_KEY}",
+    "Content-Type": "application/json",
+}
+
+# ============================================================
 # Output parsing: accepts Answer=[n], Answer=n, Answer: n
-# ----------------------------
+# ============================================================
 ANSWER_RE = re.compile(r"^\s*Answer\s*[:=]\s*\[?(\d{1,3})\]?\s*$", re.MULTILINE)
 
 def extract_rating_or_die(text: str) -> int:
@@ -34,7 +44,6 @@ def extract_rating_or_die(text: str) -> int:
     val = int(matches[-1].group(1))
     if not (0 <= val <= 100):
         raise RuntimeError(f"Rating out of range (0-100): {val}")
-
     return val
 
 def extract_one_sentence_reasoning(text: str) -> str:
@@ -55,102 +64,76 @@ def extract_one_sentence_reasoning(text: str) -> str:
         return ln[:240]
     return ""
 
-def ensure_ollama_up_or_die():
-    try:
-        r = requests.get("http://127.0.0.1:11434/api/tags", timeout=10)
-        if r.status_code != 200:
-            raise RuntimeError(f"Ollama not ready: {r.status_code} {r.text[:200]}")
-    except Exception as e:
-        raise SystemExit(f"[FATAL] Local Ollama not reachable at 127.0.0.1:11434: {e}")
-
 def atomic_write_csv(df: pd.DataFrame, path: str):
     tmp = path + ".tmp"
     df.to_csv(tmp, index=False, quoting=csv.QUOTE_ALL)
     os.replace(tmp, path)
 
-def run_one(prompt: str, timeout: int, max_retries: int) -> str:
+def openai_call(user_prompt: str, timeout: int, max_retries: int) -> str:
     payload = {
         "model": MODEL,
-        "system": SYSTEM_PROMPT,
-        "prompt": prompt,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0,
+        "max_tokens": 120,   # short 2-line output
         "stream": False,
-        "options": {
-            "num_predict": 80,
-            "temperature": 0,
-            # Optional but helps prevent tiny default context issues:
-            # "num_ctx": 4096,
-        },
-        # Optional: keep model in memory between calls (reduces stalls)
-        "keep_alive": "30m",
+        "store": False,       # optional (reduce storage)
     }
 
     last_err = None
     for attempt in range(max_retries):
         try:
-            # (connect timeout, read timeout)
-            r = requests.post(OLLAMA_URL, json=payload, timeout=(10, timeout))
-            j = r.json()  # if this throws, we'll retry
+            r = requests.post(OPENAI_URL, headers=HEADERS, json=payload, timeout=(10, timeout))
 
-            # IMPORTANT: Ollama can return {"error": "..."} even when HTTP 200
-            if "error" in j and j["error"]:
-                raise RuntimeError(f"Ollama error: {j['error']}")
+            if r.status_code in (429, 500, 502, 503, 504):
+                ra = r.headers.get("retry-after")
+                sleep_s = float(ra) if ra else min(60, (2 ** attempt) + random.random())
+                time.sleep(sleep_s)
+                continue
 
             if r.status_code != 200:
-                raise RuntimeError(f"Ollama HTTP {r.status_code}: {str(j)[:300]}")
+                raise RuntimeError(f"OpenAI HTTP {r.status_code}: {r.text[:300]}")
 
-            resp = j.get("response", "")
-            if not isinstance(resp, str):
-                raise RuntimeError(f"Bad response type: {type(resp)}; json={str(j)[:300]}")
-
-            return resp
+            j = r.json()
+            content = j["choices"][0]["message"]["content"]
+            return content if isinstance(content, str) else str(content)
 
         except requests.exceptions.Timeout as e:
             last_err = e
-            time.sleep(min(10, (2 ** attempt) + random.random()))
+            time.sleep(min(60, (2 ** attempt) + random.random()))
         except Exception as e:
             last_err = e
             if attempt == max_retries - 1:
                 raise
-            time.sleep(min(10, (2 ** attempt) + random.random()))
+            time.sleep(min(60, (2 ** attempt) + random.random()))
 
     raise RuntimeError(f"max_retries_exceeded; last_err={last_err}")
-# ----------------------------
+# ============================================================
 # Paths
-# ----------------------------
+# ============================================================
 in_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_10k.csv"
 out_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_10k_ratings.csv"
 audit_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_10k_ratings_audit.jsonl"
 
-# ----------------------------
-# Prompt content (close to researchers; one-sentence reasoning)
-# ----------------------------
+# ============================================================
+# Prompt content
+# ============================================================
 SYSTEM_PROMPT = (
-    "You are an expert in the academic literature on behavioral agent-based modeling (ABM), who accurately discerns differences in specific research topics."
+    "You are an expert in the academic literature on behavioral agent-based modeling (ABM), "
+    "who accurately discerns differences in specific research topics. "
     "Follow the output format exactly; do not add any extra text."
 )
 
-TASK_DESCRIPTION = """Your primary task is to compare the following two articles (Article 1 and Article 2) based *only* on their provided titles and abstracts.Both articles operate within the general field of behavioral agent-based modelling (ABM).
-But IMPORTANT: sharing ABM as a method does NOT imply similar research topics. Your goal is to determine how similar their *specific research topics* are within the ABM context. Do they investigate the same sub-problem, mechanism, or research question?
-# """
-
-# FORMAT_INSTRUCTIONS = """
-# Write exactly TWO lines and nothing else.
-# Line 1: One sentence (max 40 words) briefly comparing the specific research topics, mechanisms, or research questions in the two abstracts, highlighting key similarities or differences (just sharing ABM as a method does NOT count).
-# Line 2: Answer=[0-100]
-
-# Rate the similarity of the specific research topics on a continuous scale from 0 to 100:
-# 0  = Completely different specific research topics within ABM (sharing ABM as a method does NOT count).
-# 50 = The articles share significant common ground but ultimately address distinct specific research topics within ABM.
-# 100= The articles address the same specific research topic within ABM.
-
-# Strictly format the rating line *exactly* like this, with no extra text before or after:
-# Answer=[rating]
-
-# Important formatting rules:
-# - Line 2 must be exactly: Answer=[rating]
-# - rating must be an integer from 0 to 100
-# """.strip()
-
+TASK_DESCRIPTION = (
+    "Your primary task is to compare the following two articles (Article 1 and Article 2) "
+    "based *only* on their provided titles and abstracts. Both articles operate within the "
+    "general field of behavioral agent-based modelling (ABM).\n\n"
+    "But IMPORTANT: sharing ABM as a method does NOT imply similar research topics. "
+    "Your goal is to determine how similar their *specific research topics* are within the ABM context. "
+    "Do they investigate the same sub-problem, mechanism, or research question?"
+)
 
 FORMAT_INSTRUCTIONS = """
 Return exactly TWO lines.
@@ -167,7 +150,7 @@ Scoring:
 100 = Same specific research topic within ABM.
 
 Do not add labels, headings, or extra text.
-"""
+""".strip()
 
 def clean_text(x) -> str:
     if x is None:
@@ -175,32 +158,25 @@ def clean_text(x) -> str:
     if isinstance(x, float) and pd.isna(x):
         return ""
     s = str(x).strip()
-    if s.lower() == "nan":
-        return ""
-    return s
+    return "" if s.lower() == "nan" else s
 
 def truncate_text(s: str, max_chars: int = 1200) -> str:
-    """
-    Keep prompts within context budget.
-    Truncates only if needed; adds a marker so you know it happened.
-    4000 chars is usually plenty for Title+Abstract.
-    """
     s = clean_text(s)
     if len(s) <= max_chars:
         return s
     return s[:max_chars] + "\n[TRUNCATED]"
 
-def build_prompt(train: pd.DataFrame, idx: int) -> str:
-    t1 = truncate_text(train.at[idx, "text_i"], max_chars=1200)
-    t2 = truncate_text(train.at[idx, "text_j"], max_chars=1200)
-
+def build_prompt(df: pd.DataFrame, idx: int) -> str:
+    t1 = truncate_text(df.at[idx, "text_i"], max_chars=1200)
+    t2 = truncate_text(df.at[idx, "text_j"], max_chars=1200)
     pair = f"-- Article 1 --\n{t1}\n\n-- Article 2 --\n{t2}"
     return f"{TASK_DESCRIPTION}\n\nHere are the articles to evaluate:\n\n{pair}\n\n{FORMAT_INSTRUCTIONS}\n"
 
-# ----------------------------
+# ============================================================
 # Graceful shutdown: save progress on SIGTERM/SIGINT
-# ----------------------------
+# ============================================================
 STOP_REQUESTED = False
+
 def _handle_stop(signum, frame):
     global STOP_REQUESTED
     STOP_REQUESTED = True
@@ -210,13 +186,13 @@ signal.signal(signal.SIGTERM, _handle_stop)
 signal.signal(signal.SIGINT, _handle_stop)
 
 def main():
-    ensure_ollama_up_or_die()
-    print(f"[OK] Using local Ollama model: {MODEL}", flush=True)
+    print(f"[OK] Using OpenAI model: {MODEL}", flush=True)
+    print(f"[OK] OpenAI endpoint: {OPENAI_URL}", flush=True)
 
     base = pd.read_csv(in_path)
     print(f"Total rows in train_pairs.csv: {len(base)}", flush=True)
 
-    # SAFETY CAP
+    # Safety cap
     max_pairs = int(os.environ.get("MAX_PAIRS", "10000"))
     if len(base) > max_pairs:
         print(f"[WARN] Capping to MAX_PAIRS={max_pairs} (from {len(base)})", flush=True)
@@ -230,27 +206,21 @@ def main():
                 train[col] = base[col]
         if "out" not in train.columns:
             train["out"] = ""
-        if "out_raw" not in train.columns:
-            train["out_raw"] = ""
     else:
         train = base.copy()
         train["out"] = ""
-        train["out_raw"] = ""
 
-    # Done iff Answer line is present (strict)
     def is_done_out(x: str) -> bool:
-        if not isinstance(x, str):
-            return False
-        return bool(ANSWER_RE.search(x))
+        return isinstance(x, str) and bool(ANSWER_RE.search(x))
 
     done_mask = train["out"].fillna("").astype(str).apply(is_done_out)
     start_idx = int(train.index[~done_mask].min()) if (~done_mask).any() else len(train)
 
-    # Runtime knobs
-    workers = int(os.environ.get("OLLAMA_WORKERS", "1"))
-    batch_size = int(os.environ.get("BATCH_SIZE", "20"))
-    timeout = int(os.environ.get("OLLAMA_TIMEOUT", "600"))
-    max_retries = int(os.environ.get("OLLAMA_RETRIES", "2"))
+    # Runtime knobs (Groq)
+    workers = int(os.environ.get("WORKERS", "10"))
+    batch_size = int(os.environ.get("BATCH_SIZE", "100"))
+    timeout = int(os.environ.get("TIMEOUT", "120"))
+    max_retries = int(os.environ.get("RETRIES", "6"))
 
     print(f"Already completed: {int(done_mask.sum())}", flush=True)
     print(f"Starting at index: {start_idx}", flush=True)
@@ -266,7 +236,7 @@ def main():
         f"-- Article 1 --\nTitle: A\nAbstract: A\n\n-- Article 2 --\nTitle: B\nAbstract: B\n\n"
         f"{FORMAT_INSTRUCTIONS}\n"
     )
-    smoke_raw = run_one(smoke_prompt, timeout=timeout, max_retries=max_retries)
+    smoke_raw = openai_call(smoke_prompt, timeout=timeout, max_retries=max_retries)
     print("[SMOKE] raw:", repr(smoke_raw[:220]), flush=True)
     try:
         _ = extract_rating_or_die(smoke_raw)
@@ -295,7 +265,6 @@ def main():
                 t2 = clean_text(train.at[i, "text_j"])
                 if len(t1) < 30 or len(t2) < 30:
                     train.at[i, "out"] = "ERROR: missing_text"
-                    train.at[i, "out_raw"] = ""
                 else:
                     filtered.append(i)
             idxs = filtered
@@ -306,8 +275,9 @@ def main():
 
             prompts = [build_prompt(train, i) for i in idxs]
 
+
             def call(p: str) -> str:
-                return run_one(p, timeout=timeout, max_retries=max_retries)
+                return openai_call(p, timeout=timeout, max_retries=max_retries)
 
             t0 = time.time()
             if workers == 1:
@@ -329,12 +299,11 @@ def main():
                 try:
                     rating = extract_rating_or_die(raw)
                     reason = extract_one_sentence_reasoning(raw)
-                    train.at[i, "out"] = f"Answer=[{rating}]"
-                    train.at[i, "out_raw"] = reason
+                    train.at[i, "out"] = f"{reason}\nAnswer=[{rating}]"
                     ok += 1
+
                 except Exception as e:
                     train.at[i, "out"] = f"ERROR: {type(e).__name__}: {str(e)[:120]}"
-                    train.at[i, "out_raw"] = extract_one_sentence_reasoning(raw)
                     err += 1
 
                 audit_f.write(json.dumps({
@@ -342,7 +311,7 @@ def main():
                     "i": int(train.at[i, "i"]) if "i" in train.columns and pd.notna(train.at[i, "i"]) else None,
                     "j": int(train.at[i, "j"]) if "j" in train.columns and pd.notna(train.at[i, "j"]) else None,
                     "out": str(train.at[i, "out"])[:200],
-                    "reason": str(train.at[i, "out_raw"])[:240],
+                    "reason": extract_one_sentence_reasoning(raw)[:240],
                     "raw": (raw or "")[:500],
                 }) + "\n")
 
@@ -360,9 +329,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
 
 
 
