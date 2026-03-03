@@ -55,12 +55,13 @@ echo "[INFO] OLLAMA_MODELS=$OLLAMA_MODELS"
 df -h "/rds/projects/z/zhanglp-vwendler-core" || true
 
 # ---- Bind host paths into container
-BIND="/rds:/rds,/tmp:/tmp"
+BIND="/rds:/rds"
 
 export OLLAMA_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 export OLLAMA_NUM_THREADS=8
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
+export OLLAMA_HOST="127.0.0.1:11434"
 # ---- Start Ollama
 LOG="$SCRATCH/ollama_server.${SLURM_JOB_ID}.log"
 apptainer exec --bind "$BIND" "$SIF" ollama serve > "$LOG" 2>&1 &

@@ -69,39 +69,51 @@ def atomic_write_csv(df: pd.DataFrame, path: str):
     os.replace(tmp, path)
 
 def run_one(prompt: str, timeout: int, max_retries: int) -> str:
-    """
-    One request with retry/backoff.
-    IMPORTANT: We do NOT set temperature/num_predict/num_ctx etc.
-    We use server/model defaults (like the researchers' hosted API code).
-    """
-
     payload = {
         "model": MODEL,
         "system": SYSTEM_PROMPT,
         "prompt": prompt,
         "stream": False,
         "options": {
-            "num_predict": 80,  
-            "temperature": 0
-            }  
-        }
+            "num_predict": 80,
+            "temperature": 0,
+            # Optional but helps prevent tiny default context issues:
+            # "num_ctx": 4096,
+        },
+        # Optional: keep model in memory between calls (reduces stalls)
+        "keep_alive": "30m",
+    }
 
+    last_err = None
     for attempt in range(max_retries):
         try:
-            r = requests.post(OLLAMA_URL, json=payload, timeout=timeout)
+            # (connect timeout, read timeout)
+            r = requests.post(OLLAMA_URL, json=payload, timeout=(10, timeout))
+            j = r.json()  # if this throws, we'll retry
+
+            # IMPORTANT: Ollama can return {"error": "..."} even when HTTP 200
+            if "error" in j and j["error"]:
+                raise RuntimeError(f"Ollama error: {j['error']}")
+
             if r.status_code != 200:
-                raise RuntimeError(f"Ollama HTTP {r.status_code}: {r.text[:300]}")
-            j = r.json()
-            return j.get("response", "")
-        except requests.exceptions.Timeout:
+                raise RuntimeError(f"Ollama HTTP {r.status_code}: {str(j)[:300]}")
+
+            resp = j.get("response", "")
+            if not isinstance(resp, str):
+                raise RuntimeError(f"Bad response type: {type(resp)}; json={str(j)[:300]}")
+
+            return resp
+
+        except requests.exceptions.Timeout as e:
+            last_err = e
             time.sleep(min(10, (2 ** attempt) + random.random()))
-        except Exception:
+        except Exception as e:
+            last_err = e
             if attempt == max_retries - 1:
                 raise
             time.sleep(min(10, (2 ** attempt) + random.random()))
 
-    return "ERROR max_retries_exceeded"
-
+    raise RuntimeError(f"max_retries_exceeded; last_err={last_err}")
 # ----------------------------
 # Paths
 # ----------------------------
@@ -167,7 +179,7 @@ def clean_text(x) -> str:
         return ""
     return s
 
-def truncate_text(s: str, max_chars: int = 4000) -> str:
+def truncate_text(s: str, max_chars: int = 1200) -> str:
     """
     Keep prompts within context budget.
     Truncates only if needed; adds a marker so you know it happened.
@@ -179,8 +191,8 @@ def truncate_text(s: str, max_chars: int = 4000) -> str:
     return s[:max_chars] + "\n[TRUNCATED]"
 
 def build_prompt(train: pd.DataFrame, idx: int) -> str:
-    t1 = truncate_text(train.at[idx, "text_i"], max_chars=4000)
-    t2 = truncate_text(train.at[idx, "text_j"], max_chars=4000)
+    t1 = truncate_text(train.at[idx, "text_i"], max_chars=1200)
+    t2 = truncate_text(train.at[idx, "text_j"], max_chars=1200)
 
     pair = f"-- Article 1 --\n{t1}\n\n-- Article 2 --\n{t2}"
     return f"{TASK_DESCRIPTION}\n\nHere are the articles to evaluate:\n\n{pair}\n\n{FORMAT_INSTRUCTIONS}\n"
