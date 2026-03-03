@@ -2,9 +2,9 @@
 #SBATCH --job-name=1000_corrected_sem_ratings_
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbdefault
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=200G
-#SBATCH --time=24:00:00
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=128G
+#SBATCH --time=48:00:00
 #SBATCH --output=logs/%x.%j.out
 #SBATCH --error=logs/%x.%j.err
 #SBATCH --mail-type=ALL
@@ -57,6 +57,7 @@ df -h "/rds/projects/z/zhanglp-vwendler-core" || true
 # ---- Bind host paths into container
 BIND="/rds:/rds,/tmp:/tmp"
 
+export OLLAMA_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 # ---- Start Ollama
 LOG="$SCRATCH/ollama_server.${SLURM_JOB_ID}.log"
 apptainer exec --bind "$BIND" "$SIF" ollama serve > "$LOG" 2>&1 &
