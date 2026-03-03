@@ -19,7 +19,7 @@ if not OPENAI_API_KEY:
     raise SystemExit("[FATAL] OPENAI_API_KEY is not set in environment.")
 
 OPENAI_URL = os.environ.get("OPENAI_URL", "https://api.openai.com/v1/chat/completions")
-MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")       #gpt-4o-mini
 
 HEADERS = {
     "Authorization": f"Bearer {OPENAI_API_KEY}",
