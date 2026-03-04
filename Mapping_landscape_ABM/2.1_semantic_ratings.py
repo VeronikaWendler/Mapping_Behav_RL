@@ -19,7 +19,7 @@ if not OPENAI_API_KEY:
     raise SystemExit("[FATAL] OPENAI_API_KEY is not set in environment.")
 
 OPENAI_URL = os.environ.get("OPENAI_URL", "https://api.openai.com/v1/chat/completions")
-MODEL = os.environ.get("OPENAI_MODEL", "gpt-4.1-nano")       #gpt-4o-mini
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")       #
 
 HEADERS = {
     "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -158,7 +158,7 @@ FORMAT_INSTRUCTIONS = """
 Return exactly TWO lines.
 The second line must contain only Answer=[N] and nothing else.
 
-Line 1: One sentence (maximal 40 words not more) explaining the key similarity or difference in the specific research topic/mechanism/question and application domain within ABM. Rembember that the wordcount of max 40 includes your Line 2 Answer=[N], so make sure to have enough words to still produce a rating for the answer in line 2.
+Line 1: One sentence (maximal 40 words) explaining the key similarity or difference in the specific research topic/mechanism/question and application domain within ABM.
 Line 2: Answer=[N]
 
 Where:
@@ -168,8 +168,8 @@ Rate the similarity of the specific research topics on a scale from 0 to 100.
 Use the FULL range from 0 to 100 (do not only use 0, 50, and 100). The anchor points below are guides, not the only allowed values.
 
 0   = Completely different specific research topics within ABM.
-50  = The articles share significant common ground but ultimately address distinct specific research topics within ABM.
-100 = The articles address the same specific research topic within ABM.
+50  = The articles share common ground but ultimately address distinct research topics within ABM.
+100 = The articles address the same research topic within ABM.
 
 Do not add labels, headings, or extra text.
 """.strip()
