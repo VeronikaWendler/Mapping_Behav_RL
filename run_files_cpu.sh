@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=sem_ratings_openai
+#SBATCH --job-name=select_pairs_
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbdefault
 #SBATCH --cpus-per-task=8
@@ -31,4 +31,4 @@ export RETRIES=6
 export FORCE_START=8000
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/2.1_semantic_ratings.py
+python Mapping_landscape_ABM/2.0_select_pairs.py
