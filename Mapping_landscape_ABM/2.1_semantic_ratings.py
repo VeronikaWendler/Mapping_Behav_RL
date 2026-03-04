@@ -19,7 +19,7 @@ if not OPENAI_API_KEY:
     raise SystemExit("[FATAL] OPENAI_API_KEY is not set in environment.")
 
 OPENAI_URL = os.environ.get("OPENAI_URL", "https://api.openai.com/v1/chat/completions")
-MODEL = os.environ.get("OPENAI_MODEL", "gpt-5-nano-2025-08-07")       
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")       
 
 HEADERS = {
     "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -77,7 +77,7 @@ def openai_call(user_prompt: str, timeout: int, max_retries: int) -> str:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        "max_completion_tokens": 120,   # short 2-line output   max_completion_tokens for the old gpt 4 and so on mods we use max_tokens
+        "max_tokens": 120,   # short 2-line output   max_completion_tokens for the old gpt 4 and so on mods we use max_tokens
         "stream": False,
         "store": False,       # optional (reduce storage)
     }
@@ -275,7 +275,7 @@ def main():
     )
 
     smoke_raw = openai_call(smoke_prompt, timeout=timeout, max_retries=max_retries)
-    print("[SMOKE] raw:", repr(smoke_raw[:220]), flush=True)
+    print("[SMOKE] raw:", repr((smoke_raw or "")[:220]), flush=True)
     try:
         _ = extract_rating_or_die(smoke_raw)
         print("[SMOKE] parse OK", flush=True)
@@ -283,6 +283,14 @@ def main():
         print("[FATAL] Smoke test failed; output not parseable.", flush=True)
         print("Raw was:\n", smoke_raw, flush=True)
         raise SystemExit(2)
+
+    def parse_and_store(i: int, text: str) -> bool:
+        """Parse model output; if OK store formatted output in train[i,'out'] and update stats."""
+        rating = extract_rating_or_die(text)
+        reason = extract_one_sentence_reasoning(text)
+        train.at[i, "out"] = f"{reason}\nAnswer=[{rating}]"
+        stats.add(rating)
+        return True
 
     try:
         for begin in range(start_idx, len(train), batch_size):
@@ -333,42 +341,32 @@ def main():
                     sample = (raw or "").strip().replace("\n", " | ")
                     print(f"[SAMPLE row={i}] {sample[:260]}", flush=True)
 
-                final_raw = raw  # what we'll write to audit (might become raw_retry)
+                final_raw = raw  # what we'll write to audit (may become retry output)
 
+                # --- NEW: retry-on-any-parse-failure and save retry result if it parses ---
                 try:
-                    rating = extract_rating_or_die(raw)
-                    reason = extract_one_sentence_reasoning(raw)
-                    train.at[i, "out"] = f"{reason}\nAnswer=[{rating}]"
-                    stats.add(rating)
+                    parse_and_store(i, raw)
                     ok += 1
-
-                except Exception as e:
-                    err += 1
-                    raw_s = (raw or "")
-
-                    # Case: output mentions "Answer" but doesn't match the full Answer=[N] line
-                    if "Answer" in raw_s and not ANSWER_RE.search(raw_s):
+                except Exception:
+                    # Always retry once on any parse failure (including empty output / missing Answer)
+                    try:
                         raw_retry = openai_call(build_prompt(train, i), timeout=timeout, max_retries=2)
-                        final_raw = raw_retry
+                        final_raw = raw_retry  # audit captures retry text
 
-                        if ANSWER_RE.search(raw_retry):
-                            rating = extract_rating_or_die(raw_retry)
-                            reason = extract_one_sentence_reasoning(raw_retry)
-                            train.at[i, "out"] = f"{reason}\nAnswer=[{rating}]"
-                            stats.add(rating)
-                            ok += 1
-                            err -= 1  # recovered
-                        else:
+                        parse_and_store(i, raw_retry)  # <-- this saves the retry's parsed result
+                        ok += 1
+                    except Exception as e2:
+                        err += 1
+                        msg = str(e2)[:120]
+
+                        # categorize (optional)
+                        if "Empty model response" in str(e2) or not (final_raw or "").strip():
                             missing_answer += 1
-                            train.at[i, "out"] = "ERROR: missing_or_truncated_answer"
-                            if missing_answer <= 5:
-                                tail = (raw_retry or "")[-120:].replace("\n", " | ")
-                                print(f"[WARN] missing Answer at row={i} after retry: {tail}", flush=True)
-
-                    else:
-                        # Real parse failure (not truncation)
-                        parse_fail += 1
-                        train.at[i, "out"] = f"ERROR: {type(e).__name__}: {str(e)[:120]}"
+                            train.at[i, "out"] = "ERROR: missing_or_empty_output"
+                        else:
+                            parse_fail += 1
+                            train.at[i, "out"] = f"ERROR: {type(e2).__name__}: {msg}"
+                # -----------------------------------------------------------------------
 
                 # Audit (use final_raw so retry is captured correctly)
                 audit_f.write(json.dumps({

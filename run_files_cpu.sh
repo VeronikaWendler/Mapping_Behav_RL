@@ -20,7 +20,7 @@ source ~/apps/miniforge3/etc/profile.d/conda.sh
 conda activate mapping_abm
 
 export OPENAI_API_KEY="$(cat /rds/projects/z/zhanglp-vwendler-core/SECRETS/openai_api_key.txt)"
-export OPENAI_MODEL="gpt-5-nano-2025-08-07"              
+export OPENAI_MODEL="gpt-4.1-mini"              
 export OPENAI_URL="https://api.openai.com/v1/chat/completions"
 
 export MAX_PAIRS=15000
