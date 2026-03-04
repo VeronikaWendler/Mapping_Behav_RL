@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=select_pairs_
+#SBATCH --job-name=sem_ratings_openai
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbdefault
 #SBATCH --cpus-per-task=8
