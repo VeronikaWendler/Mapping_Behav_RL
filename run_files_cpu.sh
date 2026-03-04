@@ -28,7 +28,7 @@ export BATCH_SIZE=100
 export WORKERS=6
 export TIMEOUT=120
 export RETRIES=6
-unset FORCE_START
+export FORCE_START=7000
 
 cd ~/projects/Mapping_Behav_RL
 python Mapping_landscape_ABM/2.1_semantic_ratings.py
