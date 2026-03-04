@@ -19,7 +19,7 @@ if not OPENAI_API_KEY:
     raise SystemExit("[FATAL] OPENAI_API_KEY is not set in environment.")
 
 OPENAI_URL = os.environ.get("OPENAI_URL", "https://api.openai.com/v1/chat/completions")
-MODEL = os.environ.get("OPENAI_MODEL", "gpt-5-mini-2025-08-07")       
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini-2025-04-14")       
 
 HEADERS = {
     "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -77,7 +77,7 @@ def openai_call(user_prompt: str, timeout: int, max_retries: int) -> str:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        "max_completion_tokens": 120,   # short 2-line output    for the old gpt 4 and so on mods we use max_tokens
+        "max_tokens": 120,   # short 2-line output    for the old gpt 4 and so on mods we use max_tokens
         "stream": False,
         "store": False,       # optional (reduce storage)
     }
