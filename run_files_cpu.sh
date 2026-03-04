@@ -23,7 +23,7 @@ export OPENAI_API_KEY="$(cat /rds/projects/z/zhanglp-vwendler-core/SECRETS/opena
 export OPENAI_MODEL="gpt-4o-mini"              
 export OPENAI_URL="https://api.openai.com/v1/chat/completions"
 
-export MAX_PAIRS=10000
+export MAX_PAIRS=15000
 export BATCH_SIZE=100
 export WORKERS=6
 export TIMEOUT=120
