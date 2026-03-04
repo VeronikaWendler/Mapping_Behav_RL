@@ -77,7 +77,7 @@ def openai_call(user_prompt: str, timeout: int, max_retries: int) -> str:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        "max_tokens": 120,   # short 2-line output
+        "max_completion_tokens": 120,   # short 2-line output    for the old gpt 4 and so on mods we use max_tokens
         "stream": False,
         "store": False,       # optional (reduce storage)
     }
