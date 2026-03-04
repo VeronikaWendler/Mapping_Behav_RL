@@ -238,6 +238,15 @@ def main():
     done_mask = train["out"].fillna("").astype(str).apply(is_done_out)
     start_idx = int(train.index[~done_mask].min()) if (~done_mask).any() else len(train)
 
+    force_start = os.environ.get("FORCE_START", "").strip()
+    if force_start:
+        force_start = int(force_start)
+        # wipe outputs at/after force_start
+        train.loc[train.index >= force_start, "out"] = ""
+        done_mask = train["out"].fillna("").astype(str).apply(is_done_out)
+        start_idx = force_start
+        print(f"[WARN] FORCE_START enabled: cleared outputs from row {force_start} onward.", flush=True)
+
     # Runtime knobs
     workers = int(os.environ.get("WORKERS", "6"))
     batch_size = int(os.environ.get("BATCH_SIZE", "100"))
