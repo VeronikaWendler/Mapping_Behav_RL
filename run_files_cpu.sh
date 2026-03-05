@@ -2,7 +2,7 @@
 #SBATCH --job-name=sem_ratings_openai
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbdefault
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=16
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/%x.%j.out
@@ -31,4 +31,4 @@ export RETRIES=6
 unset FORCE_START
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/2.0_select_pairs.py
+python Mapping_landscape_ABM/2.2_sbert_training.py

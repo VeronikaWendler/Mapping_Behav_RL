@@ -1,3 +1,170 @@
+
+# import os
+# import pandas as pd
+# import numpy as np
+# from sklearn.model_selection import train_test_split
+# from sklearn.metrics.pairwise import cosine_similarity
+# from scipy.stats import pearsonr
+# from openai import OpenAI
+
+# # -----------------------------
+# # OpenAI embedding wrapper
+# # -----------------------------
+
+# class OpenAIEmbedder:
+#     def __init__(self, model="text-embedding-3-small"):
+#         self.client = OpenAI()
+#         self.model = model
+#         self.cache = {}
+
+#     def encode(self, texts, batch_size=128):
+#         embeddings = []
+
+#         for text in texts:
+#             if text in self.cache:
+#                 embeddings.append(self.cache[text])
+#                 continue
+
+#             resp = self.client.embeddings.create(
+#                 model=self.model,
+#                 input=text
+#             )
+
+#             emb = resp.data[0].embedding
+#             self.cache[text] = emb
+#             embeddings.append(emb)
+
+#         return np.array(embeddings)
+
+
+# # -----------------------------
+# # Evaluation (same as original)
+# # -----------------------------
+
+# def eval(data, model):
+#     e_1 = model.encode(data["text_i"].values)
+#     e_2 = model.encode(data["text_j"].values)
+
+#     similarities = np.array([
+#         cosine_similarity([emb1], [emb2])[0][0]
+#         for emb1, emb2 in zip(e_1, e_2)
+#     ])
+
+#     return pearsonr(similarities, data["rating_scaled"].values)
+
+
+# def print_eval(data_name, result):
+#     correlation, p_value = result
+#     print(f"{data_name} - Pearson correlation: {correlation:.4f}")
+
+
+# # -----------------------------
+# # Load dataset
+# # -----------------------------
+
+# print("Loading OpenAI embedding model: text-embedding-3-small")
+
+# model = OpenAIEmbedder("text-embedding-3-small")
+
+# data = pd.read_csv(
+# "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_rating_clean.csv"
+# )
+
+# print(f"Loaded dataset with {len(data)} rows")
+
+# print(
+# f"Rating range: {data['rating_scaled'].min()} to {data['rating_scaled'].max()}"
+# )
+
+# print(
+# f"Rating mean: {data['rating_scaled'].mean():.4f}, std: {data['rating_scaled'].std():.4f}"
+# )
+
+# context = "An article on behavioral agent-based modeling:\n\n"
+
+# data["text_i"] = context + data["text_i"]
+# data["text_j"] = context + data["text_j"]
+# data["rating_scaled"] = data["rating_scaled"].astype(float)
+
+# # normalize if needed
+# if data["rating_scaled"].max() > 1.0 or data["rating_scaled"].min() < 0.0:
+#     print("Normalizing rating scores to range 0-1")
+#     min_sim = data["rating_scaled"].min()
+#     max_sim = data["rating_scaled"].max()
+#     data["rating_scaled"] = (data["rating_scaled"] - min_sim) / (max_sim - min_sim)
+
+# # -----------------------------
+# # Train / test split
+# # -----------------------------
+
+# train_data, test_data = train_test_split(
+#     data,
+#     test_size=0.2,
+#     random_state=42
+# )
+
+# print(
+# f"Training on {len(train_data)} examples, testing on {len(test_data)} examples"
+# )
+
+# # -----------------------------
+# # Initial evaluation
+# # -----------------------------
+
+# print("\nInitial evaluation:")
+
+# initial_train_result = eval(train_data, model)
+# initial_test_result = eval(test_data, model)
+
+# print_eval("Train", initial_train_result)
+# print_eval("Test", initial_test_result)
+
+# # -----------------------------
+# # Final evaluation (same)
+# # -----------------------------
+
+# print("\nFinal evaluation:")
+
+# final_train_result = eval(train_data, model)
+# final_test_result = eval(test_data, model)
+
+# print_eval("Train", final_train_result)
+# print_eval("Test", final_test_result)
+
+# print("\nImprovement:")
+
+# train_improvement = final_train_result[0] - initial_train_result[0]
+# test_improvement = final_test_result[0] - initial_test_result[0]
+
+# print(f"Train correlation improved by: {train_improvement:.4f}")
+# print(f"Test correlation improved by: {test_improvement:.4f}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from sentence_transformers import SentenceTransformer, InputExample, losses
 from torch.utils.data import DataLoader
 import pandas as pd
@@ -7,13 +174,32 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from scipy.stats import pearsonr, spearmanr
 
-def eval(data, model):
-    e_1 = model.encode(data["text_i"].values)
-    e_2 = model.encode(data["text_j"].values)
-    similarities = np.array([
-        cosine_similarity([emb1], [emb2])[0][0] 
-        for emb1, emb2 in zip(e_1, e_2)
-    ])
+from functools import lru_cache
+
+def _cosine_rows(A, B):
+    # A,B are (n,d); cosine row-wise without sklearn overhead
+    A = A / (np.linalg.norm(A, axis=1, keepdims=True) + 1e-12)
+    B = B / (np.linalg.norm(B, axis=1, keepdims=True) + 1e-12)
+    return np.sum(A * B, axis=1)
+
+def encode_texts_unique(model, texts, batch_size=64):
+    """Encode unique texts once, then map back to original order."""
+    texts = list(texts)
+    uniq = list(dict.fromkeys(texts))  # stable unique
+    emb_uniq = model.encode(
+        uniq,
+        batch_size=batch_size,
+        show_progress_bar=True,
+        convert_to_numpy=True,
+        normalize_embeddings=False
+    )
+    lookup = {t: emb_uniq[i] for i, t in enumerate(uniq)}
+    return np.vstack([lookup[t] for t in texts])
+
+def eval(data, model, batch_size=64):
+    e_1 = encode_texts_unique(model, data["text_i"].values, batch_size=batch_size)
+    e_2 = encode_texts_unique(model, data["text_j"].values, batch_size=batch_size)
+    similarities = _cosine_rows(e_1, e_2)
     return pearsonr(similarities, data["rating_scaled"].values)
 
 # Print evaluation results nicely
@@ -33,7 +219,7 @@ model = SentenceTransformer(model_name, trust_remote_code=True)
 model.to(device)  # Ensure model is on correct device
 
 # Load dataset
-data = pd.read_csv("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_rating_clean.csv")
+data = pd.read_csv("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_25k_ratings_clean.csv")
 print(f"Loaded dataset with {len(data)} rows")
 
 # Print some stats about the rating scores
@@ -45,7 +231,7 @@ context = "An article on behavioral agent-based modeling:\n\n"
 data["text_i"] = context + data["text_i"]
 data["text_j"] = context + data["text_j"]
 data["rating_scaled"] = data["rating_scaled"].astype(float)
-print(data)
+#print(data)
 
 # Normalize ratings to range 0-1 if they aren't already
 # This is important for CosineSimilarityLoss
@@ -57,7 +243,9 @@ if data["rating_scaled"].max() > 1.0 or data["rating_scaled"].min() < 0.0:
 
 # Setting parameters
 batch_size = 64 
-total_epochs = 5
+
+eval_epochs = 1     # quick sanity-check on train/test split
+final_epochs = 2    # final training on the full dataset
 
 # EVAL TRAINING ----
 
@@ -83,17 +271,35 @@ train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=batch_siz
 
 # Define the loss function
 train_loss = losses.CosineSimilarityLoss(model)
+import time
+mini_examples = train_examples[: batch_size * 200]  # 200 batches
+mini_loader = DataLoader(mini_examples, shuffle=True, batch_size=batch_size)
+mini_warmup = int(len(mini_loader) * 0.1)
+
+t0 = time.time()
+model.fit(
+    train_objectives=[(mini_loader, train_loss)],
+    epochs=1,
+    warmup_steps=mini_warmup,
+    optimizer_params={'lr': 2e-5},
+    show_progress_bar=True,
+)
+t1 = time.time()
+
+sec_per_epoch_est = (t1 - t0) * (len(train_dataloader) / len(mini_loader))
+print(f"Estimated seconds per full epoch: {sec_per_epoch_est:.1f}")
+print(f"Estimated total training time (eval_epochs + final_epochs = {eval_epochs+final_epochs}): {(sec_per_epoch_est*(eval_epochs+final_epochs))/3600:.2f} hours")
 
 # Set explicit learning rate
 warmup_steps = int(len(train_dataloader) * 0.1)  # 10% of steps for warmup
 
-# Train the model with more verbose output
-print(f"\nStarting training for {total_epochs} epochs with batch size {batch_size}")
+
+print(f"\nStarting training for {eval_epochs} epochs with batch size {batch_size}")
 model.fit(
     train_objectives=[(train_dataloader, train_loss)],
-    epochs=total_epochs,
+    epochs=eval_epochs,
     warmup_steps=warmup_steps,
-    optimizer_params={'lr': 2e-5},  # Explicitly set learning rate
+    optimizer_params={'lr': 2e-5},
     show_progress_bar=True,
     #output_path="./trained_model",  # Save the model
     #checkpoint_path="./checkpoints",  # Save checkpoints
@@ -144,12 +350,12 @@ train_loss = losses.CosineSimilarityLoss(model)
 warmup_steps = int(len(train_dataloader) * 0.1)  # 10% of steps for warmup
 
 # Train the model with more verbose output
-print(f"\nStarting training for {total_epochs} epochs with batch size {batch_size}")
+print(f"\nStarting training for {final_epochs} epochs with batch size {batch_size}")
 model.fit(
     train_objectives=[(train_dataloader, train_loss)],
-    epochs=total_epochs,
+    epochs=final_epochs,
     warmup_steps=warmup_steps,
-    optimizer_params={'lr': 2e-5},  # Explicitly set learning rate
+    optimizer_params={'lr': 2e-5},
     show_progress_bar=True,
     #output_path="./trained_model",  # Save the model
     #checkpoint_path="./checkpoints",  # Save checkpoints
