@@ -31,4 +31,4 @@ export RETRIES=6
 unset FORCE_START
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/2.0_select_pairs.py
+python Mapping_landscape_ABM/2_semantic_net.R

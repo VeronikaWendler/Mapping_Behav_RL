@@ -99,8 +99,8 @@ library(readr)
 library(stringr)
 library(dplyr)
 
-in_file  <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_ratings_25k.csv"
-out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_ratings_25k_clean.csv"
+in_file  <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_25k_ratings.csv"
+out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_25k_ratings_clean.csv"
 
 # 1) Backup the original 50k file (once, timestamped)
 ts <- format(Sys.time(), "%Y%m%d_%H%M%S")
