@@ -80,43 +80,68 @@
 
 
 
+# import pandas as pd
+
+# path_10k = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_10k_ratings.csv"
+# path_15k = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_new_15k_ratings.csv"
+# out_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_25k_ratings.csv"
+
+# dedup_by_pair = False  # set True if you want to drop duplicate (i,j) pairs after concatenation
+
+# def read_csv_safely(path: str) -> pd.DataFrame:
+#     df = pd.read_csv(path, engine="python", on_bad_lines="error")
+#     for col in ["Unnamed: 0", "X", "X1", "...1"]:
+#         if col in df.columns:
+#             df = df.drop(columns=[col])
+#     return df
+
+# df10 = read_csv_safely(path_10k)
+# df15 = read_csv_safely(path_15k)
+
+# # align columns (union of both; missing columns become NaN)
+# all_cols = sorted(set(df10.columns).union(set(df15.columns)))
+# df10 = df10.reindex(columns=all_cols)
+# df15 = df15.reindex(columns=all_cols)
+
+# combined = pd.concat([df10, df15], ignore_index=True)
+
+# if dedup_by_pair:
+#     if "i" in combined.columns and "j" in combined.columns:
+#         before = len(combined)
+#         combined = combined.drop_duplicates(subset=["i", "j"], keep="first").reset_index(drop=True)
+#         print(f"[info] deduped by (i,j): {before} -> {len(combined)} rows")
+#     else:
+#         raise RuntimeError("dedup_by_pair=True but columns 'i' and 'j' were not found.")
+
+# combined.to_csv(out_path, index=False)
+
+# print("[ok] wrote:", out_path)
+# print("[ok] rows:", len(combined))
+# print("[info] 10k rows:", len(df10))
+# print("[info] 15k rows:", len(df15))
+# print("[info] combined rows:", len(combined))
+
+
+
 import pandas as pd
+import tiktoken
 
-path_10k = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_10k_ratings.csv"
-path_15k = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_new_15k_ratings.csv"
-out_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_25k_ratings.csv"
+PRICE_PER_1M = 0.13  # text-embedding-3-large
+# PRICE_PER_1M = 0.065  # if you plan to use Batch API
 
-dedup_by_pair = False  # set True if you want to drop duplicate (i,j) pairs after concatenation
+enc = tiktoken.get_encoding("cl100k_base")
 
-def read_csv_safely(path: str) -> pd.DataFrame:
-    df = pd.read_csv(path, engine="python", on_bad_lines="error")
-    for col in ["Unnamed: 0", "X", "X1", "...1"]:
-        if col in df.columns:
-            df = df.drop(columns=[col])
-    return df
+df = pd.read_csv("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_25k_ratings_clean.csv")
 
-df10 = read_csv_safely(path_10k)
-df15 = read_csv_safely(path_15k)
+context = "An article on behavioral agent-based modeling:\n\n"
+texts_i = (context + df["text_i"].astype(str)).tolist()
+texts_j = (context + df["text_j"].astype(str)).tolist()
 
-# align columns (union of both; missing columns become NaN)
-all_cols = sorted(set(df10.columns).union(set(df15.columns)))
-df10 = df10.reindex(columns=all_cols)
-df15 = df15.reindex(columns=all_cols)
+def count_tokens(s: str) -> int:
+    return len(enc.encode(s))
 
-combined = pd.concat([df10, df15], ignore_index=True)
+total_tokens = sum(map(count_tokens, texts_i)) + sum(map(count_tokens, texts_j))
+cost = (total_tokens / 1_000_000) * PRICE_PER_1M
 
-if dedup_by_pair:
-    if "i" in combined.columns and "j" in combined.columns:
-        before = len(combined)
-        combined = combined.drop_duplicates(subset=["i", "j"], keep="first").reset_index(drop=True)
-        print(f"[info] deduped by (i,j): {before} -> {len(combined)} rows")
-    else:
-        raise RuntimeError("dedup_by_pair=True but columns 'i' and 'j' were not found.")
-
-combined.to_csv(out_path, index=False)
-
-print("[ok] wrote:", out_path)
-print("[ok] rows:", len(combined))
-print("[info] 10k rows:", len(df10))
-print("[info] 15k rows:", len(df15))
-print("[info] combined rows:", len(combined))
+print("Total tokens:", total_tokens)
+print("Estimated embedding cost ($):", cost)
