@@ -220,17 +220,34 @@ def main():
         print(f"[WARN] Capping to MAX_PAIRS={max_pairs} (from {len(base)})", flush=True)
         base = base.iloc[:max_pairs].copy()
 
-    # Resume if exists
-    if os.path.exists(out_path):
-        train = pd.read_csv(out_path, engine="python", on_bad_lines="error")
-        for col in base.columns:
-            if col not in train.columns:
-                train[col] = base[col]
-        if "out" not in train.columns:
-            train["out"] = ""
-    else:
-        train = base.copy()
+    # # Resume if exists
+    # if os.path.exists(out_path):
+    #     train = pd.read_csv(out_path, engine="python", on_bad_lines="error")
+    #     for col in base.columns:
+    #         if col not in train.columns:
+    #             train[col] = base[col]
+    #     if "out" not in train.columns:
+    #         train["out"] = ""
+    # else:
+    #     train = base.copy()
+    #     train["out"] = ""
+
+
+    # Start from base (15k)
+    train = base.copy()
+    if "out" not in train.columns:
         train["out"] = ""
+
+    # If existing output exists (10k), paste it into the first rows
+    if os.path.exists(out_path):
+        old = pd.read_csv(out_path, engine="python", on_bad_lines="error")
+
+        if "out" in old.columns:
+            n_old = min(len(old), len(train))
+            train.loc[:n_old-1, "out"] = old.loc[:n_old-1, "out"].astype(str).fillna("")
+            print(f"[OK] Loaded existing outputs for first {n_old} rows from {out_path}", flush=True)
+        else:
+            print(f"[WARN] Existing {out_path} has no 'out' column; ignoring it.", flush=True)
 
     def is_done_out(x: str) -> bool:
         return isinstance(x, str) and bool(ANSWER_RE.search(x))
