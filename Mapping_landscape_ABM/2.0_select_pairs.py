@@ -38,40 +38,85 @@
 # print(f"Wrote sample: {OUT_PATH} (N={len(sample)}) seed={SEED} min_chars={MIN_CHARS}")
 
 
+# import pandas as pd
+
+# FULL_PATH = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs.csv"
+# USED_PATH = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_10k.csv"
+
+# OUT_PATH = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_new_15k.csv"
+
+# N = 15000
+# SEED = 456
+
+# # load datasets
+# full = pd.read_csv(FULL_PATH)
+# used = pd.read_csv(USED_PATH)
+
+# print("Full dataset:", len(full))
+# print("Already used:", len(used))
+
+# # create unique pair key
+# full["pair_key"] = full["i"].astype(str) + "_" + full["j"].astype(str)
+# used["pair_key"] = used["i"].astype(str) + "_" + used["j"].astype(str)
+
+# # remove already used pairs
+# remaining = full[~full["pair_key"].isin(used["pair_key"])].copy()
+
+# print("Remaining pairs:", len(remaining))
+
+# # sample new pairs
+# sample = remaining.sample(n=N, random_state=SEED).reset_index(drop=True)
+
+# # drop helper column
+# sample = sample.drop(columns=["pair_key"])
+
+# # save
+# sample.to_csv(OUT_PATH, index=False)
+
+# print("Wrote:", OUT_PATH)
+# print("Rows:", len(sample))
+
+
+
+
+
 import pandas as pd
 
-FULL_PATH = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs.csv"
-USED_PATH = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_10k.csv"
+path_10k = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_10k_ratings.csv"
+path_15k = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_new_15k_ratings.csv"
+out_path = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_25k_ratings.csv"
 
-OUT_PATH = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_new_15k.csv"
+dedup_by_pair = False  # set True if you want to drop duplicate (i,j) pairs after concatenation
 
-N = 15000
-SEED = 456
+def read_csv_safely(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path, engine="python", on_bad_lines="error")
+    for col in ["Unnamed: 0", "X", "X1", "...1"]:
+        if col in df.columns:
+            df = df.drop(columns=[col])
+    return df
 
-# load datasets
-full = pd.read_csv(FULL_PATH)
-used = pd.read_csv(USED_PATH)
+df10 = read_csv_safely(path_10k)
+df15 = read_csv_safely(path_15k)
 
-print("Full dataset:", len(full))
-print("Already used:", len(used))
+# align columns (union of both; missing columns become NaN)
+all_cols = sorted(set(df10.columns).union(set(df15.columns)))
+df10 = df10.reindex(columns=all_cols)
+df15 = df15.reindex(columns=all_cols)
 
-# create unique pair key
-full["pair_key"] = full["i"].astype(str) + "_" + full["j"].astype(str)
-used["pair_key"] = used["i"].astype(str) + "_" + used["j"].astype(str)
+combined = pd.concat([df10, df15], ignore_index=True)
 
-# remove already used pairs
-remaining = full[~full["pair_key"].isin(used["pair_key"])].copy()
+if dedup_by_pair:
+    if "i" in combined.columns and "j" in combined.columns:
+        before = len(combined)
+        combined = combined.drop_duplicates(subset=["i", "j"], keep="first").reset_index(drop=True)
+        print(f"[info] deduped by (i,j): {before} -> {len(combined)} rows")
+    else:
+        raise RuntimeError("dedup_by_pair=True but columns 'i' and 'j' were not found.")
 
-print("Remaining pairs:", len(remaining))
+combined.to_csv(out_path, index=False)
 
-# sample new pairs
-sample = remaining.sample(n=N, random_state=SEED).reset_index(drop=True)
-
-# drop helper column
-sample = sample.drop(columns=["pair_key"])
-
-# save
-sample.to_csv(OUT_PATH, index=False)
-
-print("Wrote:", OUT_PATH)
-print("Rows:", len(sample))
+print("[ok] wrote:", out_path)
+print("[ok] rows:", len(combined))
+print("[info] 10k rows:", len(df10))
+print("[info] 15k rows:", len(df15))
+print("[info] combined rows:", len(combined))
