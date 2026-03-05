@@ -167,9 +167,9 @@ N is an integer from 0 to 100.
 Rate the similarity of the specific research topics on a scale from 0 to 100.
 Use the FULL range from 0 to 100 (do not only use 0, 50, and 100). The anchor points below are guides, not the only allowed values.
 
-0   = Completely different specific research topics within ABM.
-50  = The articles share common ground but ultimately address distinct research topics within ABM.
-100 = The articles address the same research topic within ABM.
+0   = Completely different specific research topics, questions or mechanisms within ABM.
+50  = The articles share common ground but ultimately address distinct research topics, questions or mechanisms within ABM.
+100 = The articles investigate the same specific research question, topic or mechanism within ABM.
 
 Do not add labels, headings, or extra text.
 """.strip()
