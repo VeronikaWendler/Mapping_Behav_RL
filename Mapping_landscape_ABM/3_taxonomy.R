@@ -1,19 +1,13 @@
 require(tidyverse)
 library(reticulate)
 
-Sys.setenv(
-  HF_HOME = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/hf_cache",
-  TRANSFORMERS_CACHE = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/hf_cache",
-  HF_HUB_CACHE = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/hf_cache"
-)
-dir.create(Sys.getenv("HF_HOME"), recursive = TRUE, showWarnings = FALSE)
-
-cat("HF_HOME=", Sys.getenv("HF_HOME"), "\n")
+Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
+use_condaenv("mapping_abm", required=TRUE)
 print(py_config())
-
 
 require(remotes)
 Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
+
 if (!requireNamespace("memnet", quietly = TRUE)) {
   remotes::install_github("dwulff/memnet")
 }
