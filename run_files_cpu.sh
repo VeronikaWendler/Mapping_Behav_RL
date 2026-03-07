@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=2_semantic_net_1000
+#SBATCH --job-name=sem_taggings_openai
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbdefault
 #SBATCH --cpus-per-task=16
