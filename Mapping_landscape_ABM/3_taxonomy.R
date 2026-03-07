@@ -9,19 +9,25 @@ print(py_config())
 # ---- force ALL model/cache files to project storage, not home quota ----
 base_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000"
 hf_cache <- file.path(base_dir, "hf_cache")
+tmp_dir  <- file.path(base_dir, "tmp")
 model_dir <- file.path(base_dir, "qwen3_tag_model")
 emb_path  <- file.path(base_dir, "data_tags_embedding.RDS")
 
 dir.create(base_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(hf_cache, recursive = TRUE, showWarnings = FALSE)
+dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
 
 Sys.setenv(
   HF_HOME = hf_cache,
   TRANSFORMERS_CACHE = hf_cache,
-  HF_HUB_CACHE = hf_cache,
-  SENTENCE_TRANSFORMERS_HOME = hf_cache
+  HF_HUB_CACHE = file.path(hf_cache, "hub"),
+  HF_XET_CACHE = file.path(hf_cache, "xet"),
+  SENTENCE_TRANSFORMERS_HOME = hf_cache,
+  XDG_CACHE_HOME = hf_cache,
+  TMPDIR = tmp_dir,
+  TEMP = tmp_dir,
+  TMP = tmp_dir
 )
-
 cat("HF_HOME=", Sys.getenv("HF_HOME"), "\n")
 cat("MODEL_DIR=", model_dir, "\n")
 cat("EMB_PATH=", emb_path, "\n")
