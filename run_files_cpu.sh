@@ -25,10 +25,9 @@ export OPENAI_URL="https://api.openai.com/v1/chat/completions"
 
 export MAX_PAIRS=15000
 export BATCH_SIZE=100
-export WORKERS=6
 export TIMEOUT=120
 export RETRIES=6
 unset FORCE_START
 
 cd ~/projects/Mapping_Behav_RL
-Rscript Mapping_landscape_ABM/2_semantic_net.R
+python Mapping_landscape_ABM/3.1_tags.py
