@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=sem_taggings_openai
+#SBATCH --job-name=sem_taxonomy_openai
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbdefault
 #SBATCH --cpus-per-task=16
@@ -30,4 +30,4 @@ export RETRIES=6
 unset FORCE_START
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/3.1_tags.py
+Rscript Mapping_landscape_ABM/3_taxonomy.R
