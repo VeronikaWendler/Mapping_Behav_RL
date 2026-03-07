@@ -80,6 +80,15 @@ def is_done(x: str) -> bool:
     # Treat any non-empty output as completed.
     return isinstance(x, str) and x.strip() != ""
 
+def preview_text(x: str, max_len: int = 300) -> str:
+    if x is None:
+        return "None"
+    x = str(x).replace("\n", " | ").strip()
+    if len(x) <= max_len:
+        return x
+    return x[:max_len] + " ..."
+
+
 data = pd.read_csv(INPUT_CSV)
 data["text"] = "Title: " + data["Title"].astype(str) + ".\nAbstract: " + data["Abstract_cleaned"].astype(str)
 
@@ -159,19 +168,38 @@ for i in range(0, num_prompts, batch_size):
     start = time.time()
     batch_results = run_parallel_map(system_prompt, current_prompts, workers=WORKERS)
 
-    for j, result in zip(pending_idx, batch_results):
+    error_count = 0
+
+    for k, (j, result) in enumerate(zip(pending_idx, batch_results), start=1):
         tags.at[j, "out"] = result
+
+        # print first 3 outputs of each batch so you can inspect quality
+        if k <= 3:
+            print(
+                f"[SAMPLE batch={begin // batch_size + 1} row={j} id={tags.at[j, 'id']}] "
+                f"{preview_text(result)}",
+                flush=True
+            )
+
+        # print any errors explicitly
+        if isinstance(result, str) and result.startswith("ERROR:"):
+            error_count += 1
+            print(
+                f"[ERROR batch={begin // batch_size + 1} row={j} id={tags.at[j, 'id']}] "
+                f"{preview_text(result, max_len=500)}",
+                flush=True
+            )
 
     duration = round(time.time() - start, 2)
     print(
         f"Processing batch: {begin // batch_size + 1}, "
         f"rows completed this batch: {len(pending_idx)}, "
         f"row range: {begin} to {end - 1}, "
+        f"errors: {error_count}, "
         f"duration: {duration}s",
         flush=True
     )
 
-    # save progress each batch
     tags.to_csv(OUTPUT_CSV, index=False)
 
 print("Done.", flush=True)
