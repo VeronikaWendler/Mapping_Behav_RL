@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=sem_ratings_openai
+#SBATCH --job-name=2_semantic_net_1000
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbdefault
 #SBATCH --cpus-per-task=16
@@ -31,4 +31,4 @@ export RETRIES=6
 unset FORCE_START
 
 cd ~/projects/Mapping_Behav_RL
-python Mapping_landscape_ABM/2.2_sbert_training.py
+Rscript Mapping_landscape_ABM/2_semantic_net.R

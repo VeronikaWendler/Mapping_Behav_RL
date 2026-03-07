@@ -95,63 +95,63 @@ remotes::install_github("https://github.com/dwulff/memnet")
 
 # PROCESS RATINGS -----------------------------------------------------------------------------------------------
 
-library(readr)
-library(stringr)
-library(dplyr)
+# library(readr)
+# library(stringr)
+# library(dplyr)
 
-in_file  <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_25k_ratings.csv"
-out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_25k_ratings_clean.csv"
+# in_file  <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_25k_ratings.csv"
+# out_file <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/train_pairs_25k_ratings_clean.csv"
 
-# 1) Backup the original 50k file (once, timestamped)
-ts <- format(Sys.time(), "%Y%m%d_%H%M%S")
-backup_file <- str_replace(in_file, "\\.csv$", paste0("_FULL_50000_BACKUP_", ts, ".csv"))
+# # 1) Backup the original 50k file (once, timestamped)
+# ts <- format(Sys.time(), "%Y%m%d_%H%M%S")
+# backup_file <- str_replace(in_file, "\\.csv$", paste0("_FULL_50000_BACKUP_", ts, ".csv"))
 
-if (!file.exists(backup_file)) {
-  ok <- file.copy(in_file, backup_file, overwrite = FALSE)
-  cat(sprintf("[%s] Backup created: %s (ok=%s)\n", Sys.time(), backup_file, ok)); flush.console()
-} else {
-  cat(sprintf("[%s] Backup already exists: %s\n", Sys.time(), backup_file)); flush.console()
-}
+# if (!file.exists(backup_file)) {
+#   ok <- file.copy(in_file, backup_file, overwrite = FALSE)
+#   cat(sprintf("[%s] Backup created: %s (ok=%s)\n", Sys.time(), backup_file, ok)); flush.console()
+# } else {
+#   cat(sprintf("[%s] Backup already exists: %s\n", Sys.time(), backup_file)); flush.console()
+# }
 
-# 2) Read ratings
-train_pairs_ratings <- read_csv(in_file, show_col_types = FALSE)
+# # 2) Read ratings
+# train_pairs_ratings <- read_csv(in_file, show_col_types = FALSE)
 
-# 3) Drop index-like first column if it exists
-index_like <- c("X1", "X", "...1", "Unnamed: 0", "unnamed: 0")
-if (names(train_pairs_ratings)[1] %in% index_like) {
-  train_pairs_ratings <- train_pairs_ratings |> select(-1)
-}
+# # 3) Drop index-like first column if it exists
+# index_like <- c("X1", "X", "...1", "Unnamed: 0", "unnamed: 0")
+# if (names(train_pairs_ratings)[1] %in% index_like) {
+#   train_pairs_ratings <- train_pairs_ratings |> select(-1)
+# }
 
-# 4) Robust parse of Answer formats:
-#    Accepts: Answer=[85], Answer=85, Answer: 85  (case-insensitive)
-#    Also drops "ERROR: ..." rows and blanks.
-answer_pat <- regex("(?mi)^\\s*Answer\\s*[:=]\\s*\\[?(\\d{1,3})\\]?\\s*$")
+# # 4) Robust parse of Answer formats:
+# #    Accepts: Answer=[85], Answer=85, Answer: 85  (case-insensitive)
+# #    Also drops "ERROR: ..." rows and blanks.
+# answer_pat <- regex("(?mi)^\\s*Answer\\s*[:=]\\s*\\[?(\\d{1,3})\\]?\\s*$")
 
-train_pairs_clean <- train_pairs_ratings |>
-  mutate(
-    out = as.character(out),
-    rating = str_match(out %||% "", answer_pat)[, 2] |> as.numeric(),
-    rating_scaled = rating / 100
-  ) |>
-  # 5) Remove rows with missing/invalid ratings
-  filter(!is.na(rating_scaled), rating >= 0, rating <= 100) |>
-  # 6) Remove rows where the pair text is missing/empty (your "error rows that don't have content")
-  mutate(
-    text_i = as.character(text_i),
-    text_j = as.character(text_j)
-  ) |>
-  filter(
-    !is.na(text_i), !is.na(text_j),
-    nchar(str_trim(text_i)) > 0,
-    nchar(str_trim(text_j)) > 0
-  )
+# train_pairs_clean <- train_pairs_ratings |>
+#   mutate(
+#     out = as.character(out),
+#     rating = str_match(out %||% "", answer_pat)[, 2] |> as.numeric(),
+#     rating_scaled = rating / 100
+#   ) |>
+#   # 5) Remove rows with missing/invalid ratings
+#   filter(!is.na(rating_scaled), rating >= 0, rating <= 100) |>
+#   # 6) Remove rows where the pair text is missing/empty (your "error rows that don't have content")
+#   mutate(
+#     text_i = as.character(text_i),
+#     text_j = as.character(text_j)
+#   ) |>
+#   filter(
+#     !is.na(text_i), !is.na(text_j),
+#     nchar(str_trim(text_i)) > 0,
+#     nchar(str_trim(text_j)) > 0
+#   )
 
-cat(sprintf("[%s] Ratings input rows: %d\n", Sys.time(), nrow(train_pairs_ratings))); flush.console()
-cat(sprintf("[%s] Ratings kept (clean): %d\n", Sys.time(), nrow(train_pairs_clean))); flush.console()
+# cat(sprintf("[%s] Ratings input rows: %d\n", Sys.time(), nrow(train_pairs_ratings))); flush.console()
+# cat(sprintf("[%s] Ratings kept (clean): %d\n", Sys.time(), nrow(train_pairs_clean))); flush.console()
 
-# 7) Write cleaned file (this is what SBERT training should use)
-write_csv(train_pairs_clean, out_file)
-cat(sprintf("[%s] Wrote cleaned ratings: %s\n", Sys.time(), out_file)); flush.console()
+# # 7) Write cleaned file (this is what SBERT training should use)
+# write_csv(train_pairs_clean, out_file)
+# cat(sprintf("[%s] Wrote cleaned ratings: %s\n", Sys.time(), out_file)); flush.console()
 
 
 
@@ -170,3 +170,23 @@ cat(sprintf("[%s] Wrote cleaned ratings: %s\n", Sys.time(), out_file)); flush.co
 # saveRDS(sem_emb, "Mapping_landscape_ABM/Data/embs_1000/semantic_emb.RDS")
 
 
+torch = import("torch")
+sbert = import("sentence_transformers")
+
+data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_4_1000.csv") |>
+  mutate(text = paste0("Title: ", Title, ".\nAbstract: ", Abstract_cleaned))
+
+model = sbert$SentenceTransformer(
+  "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/semantic_training_1000/minilm_ft"
+)
+
+context = "An article on behavioral agent-based modelling:\n\n"
+sem_emb = model$encode(
+  paste0(context, data$text),
+  show_progress_bar = TRUE
+)
+
+rownames(sem_emb) = data$id
+
+dir.create("Mapping_landscape_ABM/Data/embs_1000", recursive = TRUE, showWarnings = FALSE)
+saveRDS(sem_emb, "Mapping_landscape_ABM/Data/embs_1000/semantic_emb.RDS")
