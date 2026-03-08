@@ -14,7 +14,7 @@ use_condaenv("mapping_abm", required = TRUE)
 print(py_config())
 
 require(remotes)
-Rcpp::sourceCpp("2_code/_helpers.cpp")
+Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
 
 remotes::install_github("https://github.com/dwulff/memnet")
 
