@@ -25,9 +25,15 @@ rownames(author_net) = rownames(reference_net) = rownames(semantic_net) =
 colnames(author_net) = colnames(reference_net) = colnames(semantic_net) = 
   data$title_id
 
+pacmap = import("pacmap")
+set.seed(42)
 
-model = pacmap$PaCMAP(n_components=as.integer(3), n_neighbors=as.integer(100), 
-                      MN_ratio=2, FP_ratio=20.0, distance="angular")
+model = pacmap$PaCMAP(
+  n_components=as.integer(3),
+  n_neighbors=as.integer(100), 
+  MN_ratio=2,
+  FP_ratio=20.0,
+  distance="angular")
 
 get_cube = function(emb, col){
   
