@@ -226,13 +226,13 @@ tag_processed =
 
 tag_dict = tag_processed |> pull(label, tag)
 
-tags = tags |> 
-  mutate(tags_clean = lapply(tags, function(x) tag_dict[x])) |> 
-  rename(tags_out = out)
-
-# tags <- tags |>
-#   mutate(tags_clean = lapply(.data$tags, function(x) unname(tag_dict[x]))) |>
+# tags = tags |> 
+#   mutate(tags_clean = lapply(tags, function(x) tag_dict[x])) |> 
 #   rename(tags_out = out)
+
+tags <- tags |>
+  mutate(tags_clean = lapply(.data$tags, function(x) unname(tag_dict[x]))) |>
+  rename(tags_out = out)
 
 
 data = read_csv("Mapping_landscape_ABM/Data/data_cleaned_filtered_4_1000.csv")
