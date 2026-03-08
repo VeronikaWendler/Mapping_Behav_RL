@@ -34,7 +34,7 @@ set.seed(42)
 
 model = pacmap$PaCMAP(
   n_components=as.integer(3),
-  n_neighbors=as.integer(100), 
+  n_neighbors=as.integer(50), 
   MN_ratio=2,
   FP_ratio=20.0,
   distance="angular")
@@ -88,19 +88,19 @@ reference_block <- emb[, grepl("^ref_",  colnames(emb)), drop = FALSE]
 semantic_block  <- emb[, grepl("^sem_",  colnames(emb)), drop = FALSE]
 
 
-pdf(file.path(fig_dir, "author.pdf"), width = 8, height = 8, bg = "white")
+pdf(file.path(fig_dir, "author_n50.pdf"), width = 8, height = 8, bg = "white")
 get_cube(author_block, viridis::mako(1, begin = .7))
 dev.off()
 
-pdf(file.path(fig_dir, "reference.pdf"), width = 8, height = 8, bg = "white")
+pdf(file.path(fig_dir, "reference_n50.pdf"), width = 8, height = 8, bg = "white")
 get_cube(reference_block, viridis::mako(1, begin = .7))
 dev.off()
 
-pdf(file.path(fig_dir, "semantic.pdf"), width = 8, height = 8, bg = "white")
+pdf(file.path(fig_dir, "semantic_n50.pdf"), width = 8, height = 8, bg = "white")
 get_cube(semantic_block, viridis::mako(1, begin = .7))
 dev.off()
 
-pdf(file.path(fig_dir, "map.pdf"), width = 8, height = 8, bg = "white")
+pdf(file.path(fig_dir, "map_n50.pdf"), width = 8, height = 8, bg = "white")
 
 p <- data |>
   ggplot(aes(x = lyt_x + rnorm(nrow(data), sd = .3),
