@@ -35,57 +35,69 @@ model = pacmap$PaCMAP(
   FP_ratio=20.0,
   distance="angular")
 
-get_cube = function(emb, col){
-  
-  clusters = model$fit_transform(emb)
-  
-  to01 = function(x, f = 10) (x - min(x))/(max(x) - min(x)) * f
-  clusters = apply(clusters, 2, to01)
-  
-  angles = c(30, 36.8, 23)
-  d = 50
-  size = 10
-  sq = (square(angles, d = d, size = size) |> apply(2, to01, f = 12) |> t() + c(1.5,-1,0)) |> t()
-  
-  plot.new();plot.window(xlim=c(.15, 1.35) * 10, ylim=c(-.1, 1.1) * 10)
+get_cube <- function(emb, col){
+
+  clusters_raw <- model$fit_transform(as.matrix(emb))
+  clusters <- reticulate::py_to_r(clusters_raw)
+  clusters <- as.matrix(clusters)
+
+  to01 <- function(x, f = 10) (x - min(x)) / (max(x) - min(x)) * f
+  clusters <- apply(clusters, 2, to01)
+
+  angles <- c(30, 36.8, 23)
+  d <- 50
+  size <- 10
+  sq <- (square(angles, d = d, size = size) |> apply(2, to01, f = 12) |> t() + c(1.5, -1, 0)) |> t()
+
+  plot.new()
+  plot.window(xlim = c(.15, 1.35) * 10, ylim = c(-.1, 1.1) * 10)
   segs(sq)
-  
-  cubes = apply(clusters, 1, function(x){
+
+  cubes <- apply(clusters, 1, function(x) {
     list(square(angles, d = d, size = .25, orig = x[c(1,2,3)], scale = TRUE))
   }) |> lapply(function(x) x[[1]])
-  
-  pos = sapply(cubes, function(x) max(x[,3]))
-  clusters = clusters[order(pos),]
-  cubes = cubes[order(pos)]
-  
+
+  pos <- sapply(cubes, function(x) max(x[,3]))
+  clusters <- clusters[order(pos), , drop = FALSE]
+  cubes <- cubes[order(pos)]
+
   set.seed(42)
-  cubes = cubes[sample(length(cubes), 1000)]
-  
-  for(i in 1:length(cubes)) {
+  cubes <- cubes[sample(length(cubes), min(1000, length(cubes)))]
+
+  for(i in seq_along(cubes)) {
     faces(cubes[[i]], col = col, border = "white")
   }
 
-  segs(sq,2)
-  }
+  segs(sq, 2)
+}
 
 
-png("Mapping_landscape_ABM/Data/figures/illustration_1000/author.png", width = 8, height = 8, res = 300, unit = "in", bg = "transparent")
-get_cube(emb[,(1:384) + 384 * 0], viridis::mako(1, begin = .7, alpha = .7))
+author_block    <- emb[, grepl("^auth_", colnames(emb)), drop = FALSE]
+reference_block <- emb[, grepl("^ref_",  colnames(emb)), drop = FALSE]
+semantic_block  <- emb[, grepl("^sem_",  colnames(emb)), drop = FALSE]
+
+png("Mapping_landscape_ABM/Data/figures/illustration_1000/author.png", width = 8, height = 8, res = 300, units = "in", bg = "transparent")
+get_cube(author_block, viridis::mako(1, begin = .7, alpha = .7))
 dev.off()
 
-png("Mapping_landscape_ABM/Data/figures/illustration_1000/reference.png", width = 8, height = 8, res = 300, unit = "in", bg = "transparent")
-get_cube(emb[,(1:384) + 384 * 1], viridis::mako(1, begin = .5, alpha = .7))
+png("Mapping_landscape_ABM/Data/figures/illustration_1000/reference.png", width = 8, height = 8, res = 300, units = "in", bg = "transparent")
+get_cube(reference_block, viridis::mako(1, begin = .5, alpha = .7))
 dev.off()
 
-png("Mapping_landscape_ABM/Data/figures/illustration_1000/semantic.png", width = 8, height = 8, res = 300, unit = "in", bg = "transparent")
-get_cube(emb[,(1:384) + 384 * 2], viridis::mako(1, begin = .3, alpha = .7))
+png("Mapping_landscape_ABM/Data/figures/illustration_1000/semantic.png", width = 8, height = 8, res = 300, units = "in", bg = "transparent")
+get_cube(semantic_block, viridis::mako(1, begin = .3, alpha = .7))
 dev.off()
 
-png("Mapping_landscape_ABM/Data/figures/illustration_1000/map.png",width=8, height=8, res = 300, unit = "in", bg = "transparent")
-data |> 
-  ggplot(aes(x = lyt_x + rnorm(nrow(data), sd = .3), y = lyt_y + rnorm(nrow(data), sd = .3))) + 
-  geom_point(pch=21, bg = "black", col = "white", cex = 1.5, stroke = .5) + 
+
+png("Mapping_landscape_ABM/Data/figures/illustration_1000/map.png", width = 8, height = 8, res = 300, units = "in", bg = "transparent")
+
+p <- data |>
+  ggplot(aes(x = lyt_x + rnorm(nrow(data), sd = .3),
+             y = lyt_y + rnorm(nrow(data), sd = .3))) +
+  geom_point(shape = 21, fill = "black", color = "white", size = 1.5, stroke = 0.5) +
   theme_void()
+
+print(p)
 dev.off()
 
 
