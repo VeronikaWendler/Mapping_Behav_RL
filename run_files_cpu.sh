@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=sem_taxonomy_openai
+#SBATCH --job-name=sem_clustering_openai
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbdefault
 #SBATCH --cpus-per-task=16
@@ -31,4 +31,4 @@ unset FORCE_START
 
 export PYTHONPATH="/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/py_pkgs:${PYTHONPATH:-}"
 cd ~/projects/Mapping_Behav_RL
-Rscript Mapping_landscape_ABM/3_taxonomy.R
+Rscript Mapping_landscape_ABM/4_clustering.R

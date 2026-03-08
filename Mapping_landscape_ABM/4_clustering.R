@@ -12,7 +12,7 @@ if (!requireNamespace("memnet", quietly = TRUE)) {
 }
 library(memnet)
 
-data <- readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged.RDS") %>%
+data <- readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged.RDS") %>%
   mutate(
     id = as.integer(id),
     title_id = paste0(id, "_", str_to_lower(`Title`))
@@ -21,85 +21,63 @@ data <- readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300
 
 # COMBINE EMB ----------
 
-author_emb = readRDS("Mapping_landscape_ABM/Data/embs_300/author_emb.RDS")
-references_emb = readRDS("Mapping_landscape_ABM/Data/embs_300/references_emb.RDS")
-semantic_emb = readRDS("Mapping_landscape_ABM/Data/embs_300/semantic_emb.RDS")
+author_emb = readRDS("Mapping_landscape_ABM/Data/embs_1000/author_emb.RDS")
+references_emb = readRDS("Mapping_landscape_ABM/Data/embs_1000/references_emb.RDS")
+semantic_emb = readRDS("Mapping_landscape_ABM/Data/embs_1000/semantic_emb.RDS")
 
 # Safety check --------
-get_item_norms <- function(mat, ids, name = "emb") {
-  stopifnot(is.matrix(mat) || is.data.frame(mat))
+# Make sure ROWS are papers/items, COLS are embedding dimensions
+coerce_rows_are_items <- function(mat, ids, name = "emb") {
   mat <- as.matrix(mat)
   d <- dim(mat)
-  n_ids <- length(ids)
 
-  cat(sprintf("[%s] dim = %d x %d ; n_ids = %d\n", name, d[1], d[2], n_ids))
+  cat(sprintf("[%s] dim = %d x %d ; n_ids = %d\n", name, d[1], d[2], length(ids)))
 
-  # Heuristic: items dimension should match n_ids (or be close)
-  row_match <- (d[1] == n_ids)
-  col_match <- (d[2] == n_ids)
-
-  # If we have rownames/colnames, use them as stronger evidence
-  rn_match <- !is.null(rownames(mat)) && sum(rownames(mat) %in% ids) > 0.9 * min(length(rownames(mat)), n_ids)
-  cn_match <- !is.null(colnames(mat)) && sum(colnames(mat) %in% ids) > 0.9 * min(length(colnames(mat)), n_ids)
-
-  if (row_match || rn_match) {
-    cat(sprintf("[%s] Treating ROWS as items -> using row norms.\n", name))
-    norms <- sqrt(rowSums(mat^2))
-    orientation <- "rows_are_items"
-  } else if (col_match || cn_match) {
-    cat(sprintf("[%s] Treating COLS as items -> using col norms.\n", name))
-    norms <- sqrt(colSums(mat^2))
-    orientation <- "cols_are_items"
-  } else {
-    # Fall back: if one dimension is 384 (embedding dim) then items are the other
-    if (d[2] == 384) {
-      cat(sprintf("[%s] Heuristic: ncol==384 -> ROWS are items.\n", name))
-      norms <- sqrt(rowSums(mat^2))
-      orientation <- "rows_are_items_heuristic"
-    } else if (d[1] == 384) {
-      cat(sprintf("[%s] Heuristic: nrow==384 -> COLS are items.\n", name))
-      norms <- sqrt(colSums(mat^2))
-      orientation <- "cols_are_items_heuristic"
-    } else {
-      stop(sprintf("[%s] Can't infer item orientation. dim=%dx%d, n_ids=%d", name, d[1], d[2], n_ids))
-    }
+  if (nrow(mat) == length(ids)) {
+    cat(sprintf("[%s] keeping as-is: rows are items.\n", name))
+    return(mat)
   }
 
-  list(norms = norms, orientation = orientation)
+  if (ncol(mat) == length(ids)) {
+    cat(sprintf("[%s] transposing so rows become items.\n", name))
+    return(t(mat))
+  }
+
+  stop(sprintf("[%s] Cannot align items with ids. dim=%d x %d, n_ids=%d",
+               name, d[1], d[2], length(ids)))
 }
 
-# Run checks
-author_info     <- get_item_norms(author_emb, data$id, "author_emb")
-references_info <- get_item_norms(references_emb, data$id, "references_emb")
-semantic_info   <- get_item_norms(semantic_emb, data$id, "semantic_emb")
+author_emb     <- coerce_rows_are_items(author_emb, data$id, "author_emb")
+references_emb <- coerce_rows_are_items(references_emb, data$id, "references_emb")
+semantic_emb   <- coerce_rows_are_items(semantic_emb, data$id, "semantic_emb")
 
-# norms for scaling
-author_norms     <- author_info$norms
-references_norms <- references_info$norms
-semantic_norms   <- semantic_info$norms
+# Follow the spirit of the original scaling, but on item vectors
+author_norms     <- apply(author_emb, 1, function(x) sqrt(sum(x^2)))
+references_norms <- apply(references_emb, 1, function(x) sqrt(sum(x^2)))
+semantic_norms   <- apply(semantic_emb, 1, function(x) sqrt(sum(x^2)))
 
 cat(sprintf("Mean norms: author=%.4f ; references=%.4f ; semantic=%.4f\n",
             mean(author_norms), mean(references_norms), mean(semantic_norms)))
 
-# Sanity: after scaling, author/ref mean norm should match semantic mean norm
 author_scale <- mean(author_norms) / mean(semantic_norms)
 ref_scale    <- mean(references_norms) / mean(semantic_norms)
 
-cat(sprintf("Scale factors: author_scale=%.6f ; ref_scale=%.6f\n", author_scale, ref_scale))
-
-
-# end of safety check --------
+cat(sprintf("Scale factors: author_scale=%.6f ; ref_scale=%.6f\n",
+            author_scale, ref_scale))
 
 author_emb     <- author_emb / author_scale
 references_emb <- references_emb / ref_scale
 
 
 emb = author_emb |> cbind(references_emb) |> cbind(semantic_emb)
-#colnames(emb) = c(paste0("auth_", 1:384), paste0("ref_", 1:384), paste0("sem_", 1:384))
-colnames(emb) <- c(paste0("auth_", seq_len(ncol(author_emb))),paste0("ref_",  seq_len(ncol(references_emb))),paste0("sem_",  seq_len(ncol(semantic_emb))))
+colnames(emb) <- c(
+  paste0("auth_", seq_len(ncol(author_emb))),
+  paste0("ref_",  seq_len(ncol(references_emb))),
+  paste0("sem_",  seq_len(ncol(semantic_emb)))
+)
 
 rownames(emb) = data$id
-saveRDS(emb, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/combined_emb.RDS")
+saveRDS(emb, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
 
 author_net = embedR::er_compare_vectors(author_emb, metric="arccos")
 references_net = embedR::er_compare_vectors(references_emb, metric="arccos")
@@ -109,7 +87,7 @@ author_lines <- apply(author_net, 1, paste, collapse = ",")
 references_lines <- apply(references_net, 1, paste, collapse = ",")
 semantic_lines <- apply(semantic_net, 1, paste, collapse = ",")
 
-out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/nets"
+out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/nets"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 readr::write_lines(author_lines,     file.path(out_dir, "author_net.txt"))
 readr::write_lines(references_lines, file.path(out_dir, "references_net.txt"))
@@ -150,7 +128,6 @@ stopifnot(ncol(lyt) == 2)
 colnames(lyt) <- c("lyt_x", "lyt_y")
 rownames(lyt) <- rownames(emb)
 
-
 cluster = hclust(dist(lyt), method = "complete")
 clustering = cutree(cluster, 30)
 
@@ -187,4 +164,4 @@ clusters <- as_tibble(lyt, rownames = "id") |>
   )
 
 data <- data |> left_join(clusters, by = "id")
-saveRDS(data, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered.RDS")
+saveRDS(data, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered.RDS")
