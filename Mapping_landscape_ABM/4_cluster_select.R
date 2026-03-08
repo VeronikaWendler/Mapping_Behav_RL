@@ -6,19 +6,15 @@ outdir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/clus
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 data <- readRDS(infile) %>%
-  select(any_of(c("id", "Title", "country", "tags_clean", "lyt_x", "lyt_y", "Year", "Source title")))
+  select(any_of(c("id", "Title", "country", "tags_clean", "lyt_x", "lyt_y", "Source title")))
 
-# -----------------------------
-# 1) Cluster sizes
-# -----------------------------
+# Cluster sizes
 cluster_sizes <- data %>%
   count(country, sort = TRUE)
 
 write_csv(cluster_sizes, file.path(outdir, "cluster_sizes.csv"))
 
-# -----------------------------
-# 2) Top tags per cluster
-# -----------------------------
+#Top cleaned tags per cluster
 cluster_top_tags <- data %>%
   tidyr::unnest_longer(tags_clean) %>%
   rename(tag = tags_clean) %>%
@@ -33,23 +29,22 @@ cluster_top_tags <- data %>%
 
 write_csv(cluster_top_tags, file.path(outdir, "cluster_top_tags.csv"))
 
-# -----------------------------
-# 3) Sample titles per cluster
-# -----------------------------
+# titles per cluster
 set.seed(42)
 
 cluster_sample_titles <- data %>%
   group_by(country) %>%
-  slice_sample(n = min(8, n())) %>%
+  mutate(rand = runif(n())) %>%
+  arrange(rand, .by_group = TRUE) %>%
+  slice_head(n = 8) %>%
   ungroup() %>%
+  select(-rand) %>%
   mutate(tags_clean = sapply(tags_clean, function(x) paste(x, collapse = "; "))) %>%
-  select(country, id, Title, tags_clean, any_of(c("Year", "Source title")))
+  select(country, id, Title, tags_clean, any_of(c("Source title")))
 
 write_csv(cluster_sample_titles, file.path(outdir, "cluster_sample_titles.csv"))
 
-# -----------------------------
 # 4) Cluster centroids
-# -----------------------------
 cluster_centroids <- data %>%
   group_by(country) %>%
   summarise(
@@ -61,14 +56,12 @@ cluster_centroids <- data %>%
 
 write_csv(cluster_centroids, file.path(outdir, "cluster_centroids.csv"))
 
-# -----------------------------
 # 5) Nearest neighboring clusters on the map
-# -----------------------------
 centroid_dist <- as.matrix(dist(cluster_centroids %>% select(lyt_x, lyt_y)))
 rownames(centroid_dist) <- cluster_centroids$country
 colnames(centroid_dist) <- cluster_centroids$country
 
-nearest_neighbors <- map_dfr(seq_len(nrow(cluster_centroids)), function(i) {
+nearest_neighbors <- purrr::map_dfr(seq_len(nrow(cluster_centroids)), function(i) {
   country_i <- cluster_centroids$country[i]
   d <- centroid_dist[i, ]
   d[i] <- Inf
@@ -84,10 +77,7 @@ nearest_neighbors <- map_dfr(seq_len(nrow(cluster_centroids)), function(i) {
 
 write_csv(nearest_neighbors, file.path(outdir, "cluster_nearest_neighbors.csv"))
 
-# -----------------------------
-# 6) Representative papers:
-# papers closest to each cluster centroid
-# -----------------------------
+# 6) Representative titles closest to centroid
 cluster_representative_titles <- data %>%
   left_join(cluster_centroids, by = "country", suffix = c("", "_centroid")) %>%
   mutate(
@@ -98,39 +88,11 @@ cluster_representative_titles <- data %>%
   arrange(dist_to_centroid, .by_group = TRUE) %>%
   slice_head(n = 8) %>%
   ungroup() %>%
-  select(country, id, Title, dist_to_centroid, tags_clean, any_of(c("Year", "Source title")))
+  select(country, id, Title, dist_to_centroid, tags_clean, any_of(c("Source title")))
 
 write_csv(
   cluster_representative_titles,
   file.path(outdir, "cluster_representative_titles.csv")
 )
-
-# -----------------------------
-# 7) Optional: top journals per cluster
-# -----------------------------
-if ("Source title" %in% names(data)) {
-  cluster_top_journals <- data %>%
-    filter(!is.na(`Source title`), `Source title` != "") %>%
-    count(country, `Source title`, sort = TRUE) %>%
-    group_by(country) %>%
-    slice_head(n = 10) %>%
-    ungroup()
-
-  write_csv(cluster_top_journals, file.path(outdir, "cluster_top_journals.csv"))
-}
-
-# -----------------------------
-# 8) Save one RDS bundle too
-# -----------------------------
-inspection_bundle <- list(
-  cluster_sizes = cluster_sizes,
-  cluster_top_tags = cluster_top_tags,
-  cluster_sample_titles = cluster_sample_titles,
-  cluster_centroids = cluster_centroids,
-  nearest_neighbors = nearest_neighbors,
-  cluster_representative_titles = cluster_representative_titles
-)
-
-saveRDS(inspection_bundle, file.path(outdir, "cluster_inspection_bundle.RDS"))
 
 cat("Saved inspection files to:\n", outdir, "\n")
