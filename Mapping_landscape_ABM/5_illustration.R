@@ -12,7 +12,7 @@ if (!requireNamespace("memnet", quietly = TRUE)) {
 }
 library(memnet)
 
-
+# folders
 data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered.RDS")
 emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
 
