@@ -16,6 +16,10 @@ library(memnet)
 data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered.RDS")
 emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
 
+fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000"
+dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+cat("Saving figures to:", fig_dir, "\n")
+
 author_net = arma_cosine(emb[,1:384]); author_net[is.na(author_net)] = 0
 reference_net = arma_cosine(emb[,(1:384) + 384]); reference_net[is.na(reference_net)] = 0
 semantic_net = arma_cosine(emb[,(1:384) + 384*2])
@@ -76,20 +80,20 @@ author_block    <- emb[, grepl("^auth_", colnames(emb)), drop = FALSE]
 reference_block <- emb[, grepl("^ref_",  colnames(emb)), drop = FALSE]
 semantic_block  <- emb[, grepl("^sem_",  colnames(emb)), drop = FALSE]
 
-png("Mapping_landscape_ABM/Data/figures/illustration_1000/author.png", width = 8, height = 8, res = 300, units = "in", bg = "transparent")
+png(file.path(fig_dir, "author.png"), width = 8, height = 8, res = 300, units = "in", bg = "transparent")
 get_cube(author_block, viridis::mako(1, begin = .7, alpha = .7))
 dev.off()
 
-png("Mapping_landscape_ABM/Data/figures/illustration_1000/reference.png", width = 8, height = 8, res = 300, units = "in", bg = "transparent")
+png(file.path(fig_dir, "reference.png"), width = 8, height = 8, res = 300, units = "in", bg = "transparent")
 get_cube(reference_block, viridis::mako(1, begin = .5, alpha = .7))
 dev.off()
 
-png("Mapping_landscape_ABM/Data/figures/illustration_1000/semantic.png", width = 8, height = 8, res = 300, units = "in", bg = "transparent")
+png(file.path(fig_dir, "semantic.png"), width = 8, height = 8, res = 300, units = "in", bg = "transparent")
 get_cube(semantic_block, viridis::mako(1, begin = .3, alpha = .7))
 dev.off()
 
 
-png("Mapping_landscape_ABM/Data/figures/illustration_1000/map.png", width = 8, height = 8, res = 300, units = "in", bg = "transparent")
+png(file.path(fig_dir, "map.png"), width = 8, height = 8, res = 300, units = "in", bg = "transparent")
 
 p <- data |>
   ggplot(aes(x = lyt_x + rnorm(nrow(data), sd = .3),
