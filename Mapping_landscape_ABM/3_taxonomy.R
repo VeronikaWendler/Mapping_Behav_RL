@@ -13,6 +13,18 @@ Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
 use_condaenv("mapping_abm", required = TRUE)
 print(py_config())
 
+require(remotes)
+Rcpp::sourceCpp("2_code/_helpers.cpp")
+
+remotes::install_github("https://github.com/dwulff/memnet")
+
+tags = read_csv("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/tagging_1000/data_tags_v1.csv") %>% 
+  select(-1) %>% 
+  mutate(tags = out |> str_extract("Answer=[:print:]+") |> str_remove("Answer=") |> str_remove_all("\\[|\\]") |> 
+           str_split(";") |> sapply(str_squish))
+
+tags_tab = tags$tags |> unlist() |> table() |> sort(decreasing = T)
+
 # base_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000"
 # emb_path  <- file.path(base_dir, "data_tags_embedding.RDS")
 # dir.create(base_dir, recursive = TRUE, showWarnings = FALSE)
