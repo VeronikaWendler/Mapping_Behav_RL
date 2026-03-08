@@ -148,20 +148,21 @@ clusters <- as_tibble(lyt, rownames = "id") |>
   mutate(
     id = as.integer(id),   
     country = clustering,
-    continent = case_when(
-      country %in% c(11, 12, 30, 20, 14, 16, 4) ~ 1,
-      country %in% c(9, 21, 15) ~ 2,
-      country %in% c(27) ~ 3,
-      country %in% c(28, 24, 8) ~ 4,
-      country %in% c(26, 25, 5, 10, 2) ~ 5,
-      country %in% c(19) ~ 6,
-      country %in% c(13) ~ 7,
-      country %in% c(1, 18, 7, 23, 3, 6, 22) ~ 8,
-      country %in% c(17) ~ 9,
-      country %in% c(29) ~ 10,
+    continent=case_when(
+      country %in% c(1, 11, 30) ~ 1,
+      country %in% c(2, 3, 7, 15, 17, 23, 27) ~ 2,
+      country %in% c(5, 6, 9, 10, 16, 18, 20, 22, 29) ~ 3,
+      country %in% c(4, 13, 24, 28) ~ 4,
+      country %in% c(8, 19, 21, 26) ~ 5,
+      country %in% c(12, 14, 25) ~ 6,
       TRUE ~ NA_real_
-    )
+      )
   )
+
 
 data <- data |> left_join(clusters, by = "id")
 saveRDS(data, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered.RDS")
+
+
+
+
