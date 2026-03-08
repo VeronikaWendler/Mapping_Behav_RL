@@ -1,6 +1,14 @@
 require(tidyverse)
 library(reticulate)
 
+Sys.setenv(
+  PYTHONPATH = paste(
+    "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/py_pkgs",
+    Sys.getenv("PYTHONPATH"),
+    sep = .Platform$path.sep
+  )
+)
+
 Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
 use_condaenv("mapping_abm", required = TRUE)
 print(py_config())
