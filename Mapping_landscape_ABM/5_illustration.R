@@ -14,7 +14,7 @@ library(memnet)
 
 
 data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered.RDS")
-emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDSS")
+emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
 
 author_net = arma_cosine(emb[,1:384]); author_net[is.na(author_net)] = 0
 reference_net = arma_cosine(emb[,(1:384) + 384]); reference_net[is.na(reference_net)] = 0
