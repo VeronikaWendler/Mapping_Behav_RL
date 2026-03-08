@@ -13,7 +13,7 @@ if (!requireNamespace("memnet", quietly = TRUE)) {
 library(memnet)
 
 # folders
-data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered.RDS")
+data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_v2.RDS")
 emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
 
 fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000"
@@ -45,7 +45,16 @@ get_cube <- function(emb, col){
   clusters <- reticulate::py_to_r(clusters_raw)
   clusters <- as.matrix(clusters)
 
-  to01 <- function(x, f = 10) (x - min(x)) / (max(x) - min(x)) * f
+  stopifnot(is.matrix(clusters))
+  stopifnot(ncol(clusters) == 3)
+  stopifnot(all(is.finite(clusters)))
+
+  to01 <- function(x, f = 10) {
+    rng <- max(x) - min(x)
+    if (rng == 0) return(rep(f / 2, length(x)))
+    (x - min(x)) / rng * f
+  }
+
   clusters <- apply(clusters, 2, to01)
 
   angles <- c(30, 36.8, 23)
@@ -62,7 +71,6 @@ get_cube <- function(emb, col){
   }) |> lapply(function(x) x[[1]])
 
   pos <- sapply(cubes, function(x) max(x[,3]))
-  clusters <- clusters[order(pos), , drop = FALSE]
   cubes <- cubes[order(pos)]
 
   set.seed(42)
@@ -75,35 +83,37 @@ get_cube <- function(emb, col){
   segs(sq, 2)
 }
 
-
 author_block    <- emb[, grepl("^auth_", colnames(emb)), drop = FALSE]
 reference_block <- emb[, grepl("^ref_",  colnames(emb)), drop = FALSE]
 semantic_block  <- emb[, grepl("^sem_",  colnames(emb)), drop = FALSE]
 
-png(file.path(fig_dir, "author.png"), width = 8, height = 8, res = 300, units = "in", bg = "transparent")
-get_cube(author_block, viridis::mako(1, begin = .7, alpha = .7))
+
+pdf(file.path(fig_dir, "author.pdf"), width = 8, height = 8, bg = "white")
+get_cube(author_block, viridis::mako(1, begin = .7))
 dev.off()
 
-png(file.path(fig_dir, "reference.png"), width = 8, height = 8, res = 300, units = "in", bg = "transparent")
-get_cube(reference_block, viridis::mako(1, begin = .5, alpha = .7))
+pdf(file.path(fig_dir, "reference.pdf"), width = 8, height = 8, bg = "white")
+get_cube(reference_block, viridis::mako(1, begin = .7))
 dev.off()
 
-png(file.path(fig_dir, "semantic.png"), width = 8, height = 8, res = 300, units = "in", bg = "transparent")
-get_cube(semantic_block, viridis::mako(1, begin = .3, alpha = .7))
+pdf(file.path(fig_dir, "semantic.pdf"), width = 8, height = 8, bg = "white")
+get_cube(semantic_block, viridis::mako(1, begin = .7))
 dev.off()
 
-
-png(file.path(fig_dir, "map.png"), width = 8, height = 8, res = 300, units = "in", bg = "transparent")
+pdf(file.path(fig_dir, "map.pdf"), width = 8, height = 8, bg = "white")
 
 p <- data |>
   ggplot(aes(x = lyt_x + rnorm(nrow(data), sd = .3),
              y = lyt_y + rnorm(nrow(data), sd = .3))) +
   geom_point(shape = 21, fill = "black", color = "white", size = 1.5, stroke = 0.5) +
-  theme_void()
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = "white", colour = NA),
+    panel.background = element_rect(fill = "white", colour = NA)
+  )
 
 print(p)
 dev.off()
-
 
 
 
