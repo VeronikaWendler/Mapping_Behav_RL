@@ -67,8 +67,8 @@ for(i in 1:nrow(continents)) {
   data_i = data %>% 
     filter(continent == i) %>% 
     mutate(
-      lyt_x = lyt_x + runif(n(), -.3, .3),
-      lyt_y = lyt_y + runif(n(), -.3, .3)
+      lyt_x = lyt_x + runif(n(), -.3, .05),
+      lyt_y = lyt_y + runif(n(), -.3, .05)
     )
 
   hull = concaveman::concaveman(
@@ -83,15 +83,17 @@ for(i in 1:nrow(continents)) {
   rx = range(hull[,1])
   ry = range(hull[,2])
 
+  step <- .1
+
   grid = expand.grid(
-    x = seq(rx[1], rx[2], .05) %>% round(2),
-    y = seq(ry[1], ry[2], .05) %>% round(2)
-  ) %>% as.matrix()
+    x = seq(rx[1], rx[2], step) %>% round(2),
+    y = seq(ry[1], ry[2], step) %>% round(2)
+    ) %>% as.matrix()
 
   index = expand.grid(
-    xi = 1:length(seq(rx[1], rx[2], .05)),
-    yi = 1:length(seq(ry[1], ry[2], .05))
-  ) %>% as.matrix()
+    xi = 1:length(seq(rx[1], rx[2], step)),
+    yi = 1:length(seq(ry[1], ry[2], step))
+    ) %>% as.matrix()
 
   points = matrix(nrow = nrow(grid), ncol = 2, dimnames = list(NULL, c("in", "cntry")))
 
@@ -115,10 +117,10 @@ for(i in 1:nrow(continents)) {
     for(k in 1:nrow(points_cntry)) {
       pt = points_cntry[k, c("x", "y")]
       dists = (abs(points_cntry[, "x"] - pt[1]) + abs(points_cntry[, "y"] - pt[2])) / 2
-      border[k] = ifelse(sum(round(dists, 2) == .05) == 8, 0, 1)
+      border[k] = ifelse(sum(round(dists, 2) == step) == 8, 0, 1)
     }
 
-    w = .05
+    w = step
     rect(
       points_cntry[,1] - w/2, points_cntry[,2] - w/2,
       points_cntry[,1] + w/2, points_cntry[,2] + w/2,
