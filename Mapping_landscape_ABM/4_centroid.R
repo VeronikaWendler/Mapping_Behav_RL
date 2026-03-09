@@ -55,18 +55,6 @@ nearest_df <- purrr::map_dfr(seq_len(nrow(dist_mat)), function(i) {
 readr::write_csv(nearest_df, file.path(out_dir, "country_nearest_neighbors_from_layout.csv"))
 
 # Optional full pairwise distances
-pairwise_df <- as_tibble(as.table(dist_mat), .name_repair = "minimal") |>
-  rename(country_1 = Var1, country_2 = Var2, distance = n) |>
-  mutate(
-    country_1 = as.integer(as.character(country_1)),
-    country_2 = as.integer(as.character(country_2))
-  ) |>
-  filter(country_1 != country_2) |>
-  arrange(country_1, distance)
-
-readr::write_csv(pairwise_df, file.path(out_dir, "country_pairwise_distances.csv"))
-
-# -----------------------------
 # 3) Automatic continent grouping from country centroids
 # -----------------------------
 hc <- hclust(dist(coords), method = "complete")
