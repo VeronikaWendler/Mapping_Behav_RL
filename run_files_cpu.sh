@@ -31,4 +31,4 @@ unset FORCE_START
 
 export PYTHONPATH="/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/py_pkgs:${PYTHONPATH:-}"
 cd ~/projects/Mapping_Behav_RL
-Rscript Mapping_landscape_ABM/4_centroid.R
+Rscript Mapping_landscape_ABM/4_clustering.R

@@ -149,19 +149,26 @@ clusters <- as_tibble(lyt, rownames = "id") |>
     id = as.integer(id),   
     country = clustering,
     continent=case_when(
-      country %in% c(1, 11, 30) ~ 1,
-      country %in% c(2, 3, 7, 15, 17, 23, 27) ~ 2,
-      country %in% c(5, 6, 9, 10, 16, 18, 20, 22, 29) ~ 3,
-      country %in% c(4, 13, 24, 28) ~ 4,
-      country %in% c(8, 19, 21, 26) ~ 5,
-      country %in% c(12, 14, 25) ~ 6,
+      country %in% c(1, 17, 18 ) ~ 1,
+      country %in% c(2, 5, 7, 10, 11, 12, 13, 28) ~ 2,
+      country %in% c(3, 4, 6, 8, 25, 27, 29) ~ 3,
+      country %in% c(9, 14, 19, 30 ) ~ 4,
+      country %in% c(5, 20, 22, 23, 24 ) ~ 5,
+      country %in% c(16, 21, 26) ~ 6,
       TRUE ~ NA_real_
       )
   )
 
+# 1              1, 17, 18                            588           3
+# 2              2 2, 5, 7, 10, 11, 12, 13, 28         2385           8
+# 3              3 3, 4, 6, 8, 25, 27, 29              1391           7
+# 4              4 9, 14, 19, 30                        743           4
+# 5              5 15, 20, 22, 23, 24                   910           5
+# 6              6 16, 21, 26                           453           3
+
 
 data <- data |> left_join(clusters, by = "id")
-saveRDS(data, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio3.RDS")
+saveRDS(data, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio2.RDS")
 
 
 
