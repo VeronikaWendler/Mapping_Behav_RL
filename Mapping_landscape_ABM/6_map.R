@@ -19,7 +19,7 @@ data = data |>
 fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000"
 dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
 
-png(file.path(fig_dir, "cluster_map_v2.png"),
+png(file.path(fig_dir, "cluster_map_v2_mnratio2.png"),
     width = 8, height = 4.8, units = "in", res = 300, bg = "white", type = "cairo-png")
 
 continents = tibble(
@@ -149,6 +149,231 @@ for(i in 1:nrow(continents)) {
 }
 
 dev.off()
+
+
+
+
+
+
+
+
+# require(tidyverse)
+# require(remotes)
+# Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
+
+# if (!requireNamespace("memnet", quietly = TRUE)) {
+#   remotes::install_github("https://github.com/dwulff/memnet")
+# }
+# library(memnet)
+
+# data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio2.RDS")
+
+# continent_map <- tibble::tribble(
+#   ~country, ~continent, ~continent_label,
+#    1, 1, "General ABM, Theory & Complexity",
+#   17, 1, "General ABM, Theory & Complexity",
+#   18, 1, "General ABM, Theory & Complexity",
+
+#    2, 2, "Organizations, Supply Chains & Innovation",
+#    5, 2, "Organizations, Supply Chains & Innovation",
+#    7, 2, "Organizations, Supply Chains & Innovation",
+#   10, 2, "Organizations, Supply Chains & Innovation",
+#   11, 2, "Organizations, Supply Chains & Innovation",
+#   12, 2, "Organizations, Supply Chains & Innovation",
+#   13, 2, "Organizations, Supply Chains & Innovation",
+#   28, 2, "Organizations, Supply Chains & Innovation",
+
+#    3, 3, "Energy, Electricity & Low-Carbon Systems",
+#    4, 3, "Energy, Electricity & Low-Carbon Systems",
+#    6, 3, "Energy, Electricity & Low-Carbon Systems",
+#    8, 3, "Energy, Electricity & Low-Carbon Systems",
+#   25, 3, "Energy, Electricity & Low-Carbon Systems",
+#   27, 3, "Energy, Electricity & Low-Carbon Systems",
+#   29, 3, "Energy, Electricity & Low-Carbon Systems",
+
+#    9, 4, "Finance, Macroeconomics & Strategic Markets",
+#   14, 4, "Finance, Macroeconomics & Strategic Markets",
+#   19, 4, "Finance, Macroeconomics & Strategic Markets",
+#   30, 4, "Finance, Macroeconomics & Strategic Markets",
+
+#   15, 5, "Social Behavior, Networks & Game Dynamics",
+#   20, 5, "Social Behavior, Networks & Game Dynamics",
+#   22, 5, "Social Behavior, Networks & Game Dynamics",
+#   23, 5, "Social Behavior, Networks & Game Dynamics",
+#   24, 5, "Social Behavior, Networks & Game Dynamics",
+
+#   16, 6, "Environment, Land, Water & Socio-Ecological Policy",
+#   21, 6, "Environment, Land, Water & Socio-Ecological Policy",
+#   26, 6, "Environment, Land, Water & Socio-Ecological Policy"
+# )
+
+# data <- data |>
+#   select(-any_of(c("continent", "continent_label"))) |>
+#   left_join(continent_map, by = "country")
+
+# stopifnot(!any(is.na(data$continent)))
+
+# set.seed(42)
+# data = data |>
+#   mutate(
+#     lyt_x_jit = lyt_x + rnorm(n(), sd = .05),
+#     lyt_y_jit = lyt_y + rnorm(n(), sd = .05)
+#   )
+
+# fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000"
+# dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+
+# png(file.path(fig_dir, "cluster_map_v3.png"),
+#     width = 8, height = 4.8, units = "in", res = 300, bg = "white", type = "cairo-png")
+
+# continents = tibble(
+#   continent = 1:6,
+#   order = c(3, 2, 6, 5, 4, 1),
+#   number = 1:6,
+#   colors = viridis::mako(6, end = .8)[order],
+#   colors_white = memnet::cmix(colors, "white", .5),
+#   colors_white2 = memnet::cmix(colors, "white", .75)
+# )
+
+# centroids = data %>%
+#   group_by(continent, continent_label) %>%
+#   summarize(
+#     lyt_x = mean(lyt_x),
+#     lyt_y = mean(lyt_y),
+#     .groups = "drop"
+#   ) %>%
+#   mutate(
+#     lab_x = lyt_x + c(-2, 2, 3, -2, 2, -3),
+#     lab_y = lyt_y + c(4, 3, -1, -3, -4, 2),
+#     adj = c(.5, 0, 0, 1, 0, 1)
+#   )
+
+# continents = continents %>%
+#   left_join(centroids, by = "continent")
+
+# xlim = range(data$lyt_x)
+# ylim = range(data$lyt_y)
+
+# par(mar = c(0, 0, 0, 0))
+# plot.new()
+# plot.window(xlim = xlim * c(1.1, 1.1), ylim = ylim * c(1, 1.2))
+
+# for(i in 1:nrow(continents)) {
+
+#   data_i = data %>%
+#     filter(continent == i) %>%
+#     mutate(
+#       lyt_x = lyt_x + runif(n(), -.1, .1),
+#       lyt_y = lyt_y + runif(n(), -.1, .1)
+#     )
+
+#   hull = concaveman::concaveman(
+#     cbind(data_i$lyt_x, data_i$lyt_y),
+#     concavity = 2,
+#     length_threshold = 2
+#   )
+
+#   hull[,1] = round(round(hull[,1] * 2, 1) / 2, 2)
+#   hull[,2] = round(round(hull[,2] * 2, 1) / 2, 2)
+
+#   rx = range(hull[,1])
+#   ry = range(hull[,2])
+
+#   step <- 0.1
+
+#   grid = expand.grid(
+#     x = seq(rx[1], rx[2], step) %>% round(2),
+#     y = seq(ry[1], ry[2], step) %>% round(2)
+#   ) %>% as.matrix()
+
+#   index = expand.grid(
+#     xi = seq_along(seq(rx[1], rx[2], step)),
+#     yi = seq_along(seq(ry[1], ry[2], step))
+#   ) %>% as.matrix()
+
+#   points_mat = matrix(nrow = nrow(grid), ncol = 2, dimnames = list(NULL, c("in", "cntry")))
+
+#   for(k in 1:nrow(grid)) {
+#     pt = grid[k, ]
+#     points_mat[k,1] = pnpoly(pt, hull)
+#     dists = sqrt((data_i$lyt_x - pt[1])^2 + (data_i$lyt_y - pt[2])^2)
+#     points_mat[k,2] = data_i$country[which.min(dists)]
+#   }
+
+#   points_mat = cbind(index, cbind(grid, points_mat))
+#   points_mat = points_mat[points_mat[, "in"] > 0, ]
+
+#   uni_countries = unique(data_i$country)
+#   col = continents$colors_white2[data_i$continent[1]]
+
+#   for(j in seq_along(uni_countries)) {
+#     points_cntry = points_mat[points_mat[, "cntry"] == uni_countries[j], c("x", "y"), drop = FALSE]
+
+#     if (nrow(points_cntry) == 0) next
+
+#     border = c()
+#     for(k in 1:nrow(points_cntry)) {
+#       pt = points_cntry[k, c("x", "y")]
+#       dists = (abs(points_cntry[, "x"] - pt[1]) + abs(points_cntry[, "y"] - pt[2])) / 2
+#       border[k] = ifelse(sum(round(dists, 2) == step) == 8, 0, 1)
+#     }
+
+#     w = step
+#     rect(
+#       points_cntry[,1] - w/2, points_cntry[,2] - w/2,
+#       points_cntry[,1] + w/2, points_cntry[,2] + w/2,
+#       col = ifelse(border, "white", col),
+#       border = NA
+#     )
+#   }
+
+#   points(
+#     data_i$lyt_x_jit,
+#     data_i$lyt_y_jit,
+#     bg = continents$colors[data_i$continent[1]],
+#     col = continents$colors_white[data_i$continent[1]],
+#     pch = 21, cex = .2, lwd = .1
+#   )
+# }
+
+# for(i in 1:nrow(continents)) {
+#   continents_i = continents %>% slice(i)
+#   text(
+#     continents_i$lab_x, continents_i$lab_y,
+#     labels = paste0(gsub(" & ", "\n& ", continents_i$continent_label), " (", continents_i$number, ")"),
+#     cex = .9,
+#     adj = continents_i$adj,
+#     col = continents_i$colors,
+#     font = 1
+#   )
+# }
+
+# dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
