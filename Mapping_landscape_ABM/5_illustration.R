@@ -22,21 +22,6 @@ print(py_config())
 pacmap <- import("pacmap")
 
 
-require(tidyverse)
-require(reticulate)
-
-Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
-use_condaenv("mapping_abm", required = TRUE)
-print(py_config())
-
-source("Mapping_landscape_ABM/_cubes.R")
-require(remotes)
-Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
-
-if (!requireNamespace("memnet", quietly = TRUE)) {
-  remotes::install_github("dwulff/memnet")
-}
-library(memnet)
 
 # -----------------------------
 # Load data
@@ -158,6 +143,195 @@ stopifnot(all(is.finite(lyt2)))
 colnames(lyt2) <- c("lyt_x_sem", "lyt_y_sem")
 
 plot_data <- bind_cols(data, as.data.frame(lyt2))
+
+# -----------------------------
+# 3) Detect semantic regions from the semantic map
+# -----------------------------
+require(dbscan)
+
+coords_sem <- plot_data |>
+  select(lyt_x_sem, lyt_y_sem) |>
+  as.matrix()
+
+# Tune minPts if needed: 20, 25, 30 are sensible starting points
+sem_cl <- dbscan::hdbscan(coords_sem, minPts = 25)
+
+plot_data <- plot_data |>
+  mutate(semantic_region = sem_cl$cluster)
+
+# Save with semantic-region assignments
+saveRDS(plot_data, file.path(fig_dir, "data_semantic_map_with_regions_MN_ratio_2.RDS"))
+
+# -----------------------------
+# 4) Plot semantic regions
+# -----------------------------
+pdf(file.path(fig_dir, "map_semantic_only_regions_hdbscan.pdf"),
+    width = 8, height = 8, bg = "white")
+
+p_regions <- plot_data |>
+  ggplot(aes(x = lyt_x_sem, y = lyt_y_sem, fill = factor(semantic_region))) +
+  geom_point(shape = 21, color = "white", size = 1.1, stroke = 0.2) +
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = "white", colour = NA),
+    panel.background = element_rect(fill = "white", colour = NA)
+  ) +
+  guides(fill = guide_legend(title = "Semantic region"))
+
+print(p_regions)
+dev.off()
+
+# -----------------------------
+# 5) Find representative papers per semantic region
+# -----------------------------
+region_centroids <- plot_data |>
+  filter(semantic_region != 0) |>
+  group_by(semantic_region) |>
+  summarise(
+    cx = mean(lyt_x_sem),
+    cy = mean(lyt_y_sem),
+    n_papers = n(),
+    .groups = "drop"
+  )
+
+# Detect title column robustly
+title_col <- c("Title", "title", "paper_title")[
+  c("Title", "title", "paper_title") %in% names(plot_data)
+][1]
+
+if (is.na(title_col)) stop("Could not find a title column in data.")
+
+rep_titles <- plot_data |>
+  filter(semantic_region != 0) |>
+  left_join(region_centroids, by = "semantic_region") |>
+  mutate(
+    dist_to_centroid = sqrt((lyt_x_sem - cx)^2 + (lyt_y_sem - cy)^2)
+  ) |>
+  group_by(semantic_region) |>
+  arrange(dist_to_centroid, .by_group = TRUE) |>
+  slice_head(n = 10) |>
+  ungroup() |>
+  select(
+    semantic_region,
+    id,
+    title = all_of(title_col),
+    dist_to_centroid
+  )
+
+readr::write_csv(rep_titles, file.path(fig_dir, "semantic_region_representative_titles.csv"))
+
+# -----------------------------
+# 6) Extract top tags per semantic region
+# -----------------------------
+# Try to find a tags column
+tag_col <- c("tags_clean", "tags", "tag", "keywords")[
+  c("tags_clean", "tags", "tag", "keywords") %in% names(plot_data)
+][1]
+
+if (!is.na(tag_col)) {
+
+  tags_long <- plot_data |>
+    filter(semantic_region != 0) |>
+    select(id, semantic_region, all_of(tag_col)) |>
+    mutate(tag_raw = .data[[tag_col]]) |>
+    mutate(
+      tag_raw = purrr::map(tag_raw, function(x) {
+        if (is.null(x)) return(character(0))
+        if (is.list(x)) return(unlist(x))
+        if (length(x) > 1) return(as.character(x))
+        x <- as.character(x)
+        # split strings like "a; b; c" or "a, b, c"
+        unlist(strsplit(x, "\\s*[,;|]\\s*"))
+      })
+    ) |>
+    tidyr::unnest(tag_raw) |>
+    mutate(
+      tag_raw = stringr::str_trim(stringr::str_to_lower(tag_raw))
+    ) |>
+    filter(tag_raw != "")
+
+  # remove generic ABM terms that don't help labeling
+  generic_tags <- c(
+    "agent-based model",
+    "agent-based models",
+    "agent-based simulation",
+    "agent-based simulations",
+    "multi-agent system",
+    "multi-agent systems",
+    "multi-agent simulation",
+    "multi-agent simulations",
+    "complex adaptive systems",
+    "social simulation",
+    "simulation",
+    "computational model",
+    "computational models"
+  )
+
+  top_tags <- tags_long |>
+    filter(!tag_raw %in% generic_tags) |>
+    count(semantic_region, tag_raw, sort = TRUE) |>
+    group_by(semantic_region) |>
+    slice_head(n = 15) |>
+    ungroup()
+
+  readr::write_csv(top_tags, file.path(fig_dir, "semantic_region_top_tags.csv"))
+
+  # -----------------------------
+  # 7) Simple auto-label suggestions from top tags
+  # -----------------------------
+  auto_labels <- top_tags |>
+    group_by(semantic_region) |>
+    summarise(
+      label_auto = paste(head(tag_raw, 3), collapse = " / "),
+      .groups = "drop"
+    ) |>
+    left_join(region_centroids, by = "semantic_region")
+
+  readr::write_csv(auto_labels, file.path(fig_dir, "semantic_region_auto_labels.csv"))
+
+  # plot with auto labels
+  pdf(file.path(fig_dir, "map_semantic_only_regions_labeled_auto.pdf"),
+      width = 8, height = 8, bg = "white")
+
+  p_regions_lab <- plot_data |>
+    ggplot(aes(x = lyt_x_sem, y = lyt_y_sem, fill = factor(semantic_region))) +
+    geom_point(shape = 21, color = "white", size = 1.0, stroke = 0.15) +
+    geom_text(
+      data = auto_labels,
+      aes(x = cx, y = cy, label = label_auto),
+      inherit.aes = FALSE,
+      size = 3.5
+    ) +
+    theme_void() +
+    theme(
+      plot.background = element_rect(fill = "white", colour = NA),
+      panel.background = element_rect(fill = "white", colour = NA)
+    ) +
+    guides(fill = guide_legend(title = "Semantic region"))
+
+  print(p_regions_lab)
+  dev.off()
+
+} else {
+  warning("No tags column found. Skipping tag summaries and auto labels.")
+}
+
+# -----------------------------
+# 8) Save region sizes
+# -----------------------------
+region_sizes <- plot_data |>
+  count(semantic_region, sort = TRUE)
+
+readr::write_csv(region_sizes, file.path(fig_dir, "semantic_region_sizes.csv"))
+
+cat("Saved semantic-region outputs:\n")
+cat(" - data_semantic_map_with_regions_MN_ratio_2.RDS\n")
+cat(" - map_semantic_only_regions_hdbscan.pdf\n")
+cat(" - semantic_region_representative_titles.csv\n")
+cat(" - semantic_region_sizes.csv\n")
+cat(" - semantic_region_top_tags.csv (if tag column found)\n")
+cat(" - semantic_region_auto_labels.csv (if tag column found)\n")
+cat(" - map_semantic_only_regions_labeled_auto.pdf (if tag column found)\n")
 
 # Save coordinates too, so you can reuse them later
 saveRDS(plot_data, file.path(fig_dir, "data_semantic_map_coords_MN_ratio_2.RDS"))
