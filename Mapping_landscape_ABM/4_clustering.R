@@ -136,7 +136,7 @@ clustering = cutree(cluster, 30)
 # sapply(1:max(clustering), function(x) text(mean(lyt[clustering==x,1]), mean(lyt[clustering==x,2]), label = x, col="grey50"))
 
 png(file.path(out_dir, "pacmap_clusters_MN_ratio3.png"), width=1200, height=900)
-j <- matrix(rnorm(nrow(lyt)*2, sd=.3), ncol=2)
+j <- matrix(rnorm(nrow(lyt)*2, sd=.05), ncol=2)
 plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
 invisible(sapply(1:max(clustering), function(k) {
   text(mean(lyt[clustering==k,1]), mean(lyt[clustering==k,2]), labels = k, col="grey50")
