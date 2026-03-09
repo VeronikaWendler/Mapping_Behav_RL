@@ -151,7 +151,7 @@ get_cube <- function(emb, col){
   clusters <- as.matrix(clusters)
 
   stopifnot(is.matrix(clusters))
-  stopifnot(ncol(clusters) == 3)
+  stopifnot(ncol(clusters) == 2)
   stopifnot(all(is.finite(clusters)))
 
   to01 <- function(x, f = 10) {
