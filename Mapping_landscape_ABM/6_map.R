@@ -12,8 +12,8 @@ data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000
 set.seed(42)
 data = data |> 
   mutate(
-    lyt_x_jit = lyt_x + rnorm(n(), sd = .2),
-    lyt_y_jit = lyt_y + rnorm(n(), sd = .2)
+    lyt_x_jit = lyt_x + rnorm(n(), sd = .05),
+    lyt_y_jit = lyt_y + rnorm(n(), sd = .05)
   )
 
 fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000"
