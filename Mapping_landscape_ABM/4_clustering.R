@@ -102,7 +102,7 @@ set.seed(42)
 model <- pacmap$PaCMAP(
   n_components = as.integer(2),
   n_neighbors  = as.integer(50),
-  MN_ratio     = 3,
+  MN_ratio     = 2,               # was 3
   FP_ratio     = 10.0,
   distance     = "angular"
 )
@@ -135,7 +135,7 @@ clustering = cutree(cluster, 30)
 # plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
 # sapply(1:max(clustering), function(x) text(mean(lyt[clustering==x,1]), mean(lyt[clustering==x,2]), label = x, col="grey50"))
 
-png(file.path(out_dir, "pacmap_clusters.png"), width=1200, height=900)
+png(file.path(out_dir, "pacmap_clusters_MN_ratio3.png"), width=1200, height=900)
 j <- matrix(rnorm(nrow(lyt)*2, sd=.3), ncol=2)
 plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
 invisible(sapply(1:max(clustering), function(k) {
@@ -161,7 +161,7 @@ clusters <- as_tibble(lyt, rownames = "id") |>
 
 
 data <- data |> left_join(clusters, by = "id")
-saveRDS(data, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered.RDS")
+saveRDS(data, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio3.RDS")
 
 
 

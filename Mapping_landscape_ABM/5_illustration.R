@@ -139,7 +139,7 @@ run_map(
 
 # model = pacmap$PaCMAP(
 #   n_components=as.integer(3),
-#   n_neighbors=as.integer(50), 
+#   n_neighbors=as.integer(100), 
 #   MN_ratio=2,
 #   FP_ratio=20.0,
 #   distance="angular")
