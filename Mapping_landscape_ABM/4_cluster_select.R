@@ -1,7 +1,7 @@
 library(tidyverse)
 
-infile <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio3.RDS"
-outdir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/cluster_inspection_MN_ratio3"
+infile <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio2.RDS"
+outdir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/cluster_inspection_MN_ratio2"
 
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 

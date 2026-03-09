@@ -118,7 +118,7 @@ pacmap <- import("pacmap")
 
 
 # folders
-data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio3.RDS")
+data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio2.RDS")
 emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
 
 fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000"
