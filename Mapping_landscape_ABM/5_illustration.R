@@ -21,6 +21,236 @@ print(py_config())
 
 pacmap <- import("pacmap")
 
+
+require(tidyverse)
+require(reticulate)
+
+Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
+use_condaenv("mapping_abm", required = TRUE)
+print(py_config())
+
+source("Mapping_landscape_ABM/_cubes.R")
+require(remotes)
+Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
+
+if (!requireNamespace("memnet", quietly = TRUE)) {
+  remotes::install_github("dwulff/memnet")
+}
+library(memnet)
+
+# -----------------------------
+# Load data
+# -----------------------------
+data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio2.RDS")
+emb  = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
+
+fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000_try"
+dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+cat("Saving figures to:", fig_dir, "\n")
+
+stopifnot(nrow(emb) == nrow(data))
+
+# -----------------------------
+# Split embedding blocks
+# -----------------------------
+author_block    <- emb[, grepl("^auth_", colnames(emb)), drop = FALSE]
+reference_block <- emb[, grepl("^ref_",  colnames(emb)), drop = FALSE]
+semantic_block  <- emb[, grepl("^sem_",  colnames(emb)), drop = FALSE]
+
+# -----------------------------
+# Import PaCMAP
+# -----------------------------
+pacmap <- import("pacmap")
+set.seed(42)
+
+# -----------------------------
+# 3D model for cube illustrations
+# -----------------------------
+model3d <- pacmap$PaCMAP(
+  n_components = as.integer(3),
+  n_neighbors  = as.integer(50),
+  MN_ratio     = 2,
+  FP_ratio     = 10.0,
+  distance     = "angular"
+)
+
+get_cube <- function(emb_mat, col) {
+  clusters_raw <- model3d$fit_transform(as.matrix(emb_mat))
+  clusters <- reticulate::py_to_r(clusters_raw)
+  clusters <- as.matrix(clusters)
+
+  stopifnot(is.matrix(clusters))
+  stopifnot(ncol(clusters) == 3)
+  stopifnot(all(is.finite(clusters)))
+
+  to01 <- function(x, f = 10) {
+    rng <- max(x) - min(x)
+    if (rng == 0) return(rep(f / 2, length(x)))
+    (x - min(x)) / rng * f
+  }
+
+  clusters <- apply(clusters, 2, to01)
+
+  angles <- c(30, 36.8, 23)
+  d <- 50
+  size <- 10
+  sq <- (square(angles, d = d, size = size) |>
+           apply(2, to01, f = 12) |>
+           t() + c(1.5, -1, 0)) |>
+    t()
+
+  plot.new()
+  plot.window(xlim = c(.15, 1.35) * 10, ylim = c(-.1, 1.1) * 10)
+  segs(sq)
+
+  cubes <- apply(clusters, 1, function(x) {
+    list(square(angles, d = d, size = .25, orig = x[c(1, 2, 3)], scale = TRUE))
+  }) |>
+    lapply(function(x) x[[1]])
+
+  pos <- sapply(cubes, function(x) max(x[, 3]))
+  cubes <- cubes[order(pos)]
+
+  set.seed(42)
+  cubes <- cubes[sample(length(cubes), min(1000, length(cubes)))]
+
+  for (i in seq_along(cubes)) {
+    faces(cubes[[i]], col = col, border = "white")
+  }
+
+  segs(sq, 2)
+}
+
+# -----------------------------
+# Save cube illustrations
+# -----------------------------
+pdf(file.path(fig_dir, "author_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
+get_cube(author_block, viridis::mako(1, begin = .7))
+dev.off()
+
+pdf(file.path(fig_dir, "reference_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
+get_cube(reference_block, viridis::mako(1, begin = .5))
+dev.off()
+
+pdf(file.path(fig_dir, "semantic_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
+get_cube(semantic_block, viridis::mako(1, begin = .3))
+dev.off()
+
+# -----------------------------
+# 2D semantic-only map
+# -----------------------------
+model2d <- pacmap$PaCMAP(
+  n_components = as.integer(2),
+  n_neighbors  = as.integer(50),
+  MN_ratio     = 2,
+  FP_ratio     = 10.0,
+  distance     = "angular"
+)
+
+lyt2_raw <- model2d$fit_transform(as.matrix(semantic_block))
+lyt2 <- reticulate::py_to_r(lyt2_raw)
+lyt2 <- as.matrix(lyt2)
+
+stopifnot(is.matrix(lyt2))
+stopifnot(ncol(lyt2) == 2)
+stopifnot(all(is.finite(lyt2)))
+
+colnames(lyt2) <- c("lyt_x_sem", "lyt_y_sem")
+
+plot_data <- bind_cols(data, as.data.frame(lyt2))
+
+# Save coordinates too, so you can reuse them later
+saveRDS(plot_data, file.path(fig_dir, "data_semantic_map_coords_MN_ratio_2.RDS"))
+
+# Raw semantic-only map, no jitter
+pdf(file.path(fig_dir, "map_semantic_only_MN_ratio_2_nojitter.pdf"),
+    width = 8, height = 8, bg = "white")
+
+p1 <- plot_data |>
+  ggplot(aes(x = lyt_x_sem, y = lyt_y_sem)) +
+  geom_point(shape = 21, fill = "black", color = "white", size = 1.5, stroke = 0.5) +
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = "white", colour = NA),
+    panel.background = element_rect(fill = "white", colour = NA)
+  )
+
+print(p1)
+dev.off()
+
+# Raw semantic-only map, tiny jitter
+set.seed(42)
+plot_data_jit <- plot_data |>
+  mutate(
+    lyt_x_sem_jit = lyt_x_sem + rnorm(n(), sd = .02),
+    lyt_y_sem_jit = lyt_y_sem + rnorm(n(), sd = .02)
+  )
+
+pdf(file.path(fig_dir, "map_semantic_only_MN_ratio_2_tinyjitter.pdf"),
+    width = 8, height = 8, bg = "white")
+
+p2 <- plot_data_jit |>
+  ggplot(aes(x = lyt_x_sem_jit, y = lyt_y_sem_jit)) +
+  geom_point(shape = 21, fill = "black", color = "white", size = 1.5, stroke = 0.5) +
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = "white", colour = NA),
+    panel.background = element_rect(fill = "white", colour = NA)
+  )
+
+print(p2)
+dev.off()
+
+# Semantic-only map colored by current continent
+pdf(file.path(fig_dir, "map_semantic_only_MN_ratio_2_by_continent.pdf"),
+    width = 8, height = 8, bg = "white")
+
+p3 <- plot_data |>
+  ggplot(aes(x = lyt_x_sem, y = lyt_y_sem, fill = factor(continent))) +
+  geom_point(shape = 21, color = "white", size = 1.2, stroke = 0.25) +
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = "white", colour = NA),
+    panel.background = element_rect(fill = "white", colour = NA)
+  ) +
+  guides(fill = guide_legend(title = "Continent"))
+
+print(p3)
+dev.off()
+
+# Semantic-only map colored by current country
+pdf(file.path(fig_dir, "map_semantic_only_MN_ratio_2_by_country.pdf"),
+    width = 8, height = 8, bg = "white")
+
+p4 <- plot_data |>
+  ggplot(aes(x = lyt_x_sem, y = lyt_y_sem, fill = factor(country))) +
+  geom_point(shape = 21, color = "white", size = 1.0, stroke = 0.15) +
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = "white", colour = NA),
+    panel.background = element_rect(fill = "white", colour = NA)
+  ) +
+  guides(fill = "none")
+
+print(p4)
+dev.off()
+
+cat("Done.\n")
+cat("Created files:\n")
+cat(" - author_MN_ratio_2.pdf\n")
+cat(" - reference_MN_ratio_2.pdf\n")
+cat(" - semantic_MN_ratio_2.pdf\n")
+cat(" - map_semantic_only_MN_ratio_2_nojitter.pdf\n")
+cat(" - map_semantic_only_MN_ratio_2_tinyjitter.pdf\n")
+cat(" - map_semantic_only_MN_ratio_2_by_continent.pdf\n")
+cat(" - map_semantic_only_MN_ratio_2_by_country.pdf\n")
+cat(" - data_semantic_map_coords_MN_ratio_2.RDS\n")
+
+
+
+
+
+
 # data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_v2.RDS")
 # emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
 
@@ -117,108 +347,108 @@ pacmap <- import("pacmap")
 
 
 
-# folders
-data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio2.RDS")
-emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
+# # folders
+# data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio2.RDS")
+# emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
 
-fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000"
-dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
-cat("Saving figures to:", fig_dir, "\n")
+# fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000"
+# dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+# cat("Saving figures to:", fig_dir, "\n")
 
-author_net = arma_cosine(emb[,1:384]); author_net[is.na(author_net)] = 0
-reference_net = arma_cosine(emb[,(1:384) + 384]); reference_net[is.na(reference_net)] = 0
-semantic_net = arma_cosine(emb[,(1:384) + 384*2])
+# author_net = arma_cosine(emb[,1:384]); author_net[is.na(author_net)] = 0
+# reference_net = arma_cosine(emb[,(1:384) + 384]); reference_net[is.na(reference_net)] = 0
+# semantic_net = arma_cosine(emb[,(1:384) + 384*2])
 
-rownames(author_net) = rownames(reference_net) = rownames(semantic_net) = 
-  data$title_id
-colnames(author_net) = colnames(reference_net) = colnames(semantic_net) = 
-  data$title_id
+# rownames(author_net) = rownames(reference_net) = rownames(semantic_net) = 
+#   data$title_id
+# colnames(author_net) = colnames(reference_net) = colnames(semantic_net) = 
+#   data$title_id
 
-pacmap = import("pacmap")
-set.seed(42)
+# pacmap = import("pacmap")
+# set.seed(42)
 
-model = pacmap$PaCMAP(
-  n_components=as.integer(3),
-  n_neighbors=as.integer(50), 
-  MN_ratio=2,
-  FP_ratio=10.0,
-  distance="angular")
+# model = pacmap$PaCMAP(
+#   n_components=as.integer(3),
+#   n_neighbors=as.integer(50), 
+#   MN_ratio=2,
+#   FP_ratio=10.0,
+#   distance="angular")
 
-get_cube <- function(emb, col){
+# get_cube <- function(emb, col){
 
-  clusters_raw <- model$fit_transform(as.matrix(emb))
-  clusters <- reticulate::py_to_r(clusters_raw)
-  clusters <- as.matrix(clusters)
+#   clusters_raw <- model$fit_transform(as.matrix(emb))
+#   clusters <- reticulate::py_to_r(clusters_raw)
+#   clusters <- as.matrix(clusters)
 
-  stopifnot(is.matrix(clusters))
-  stopifnot(ncol(clusters) == 3)
-  stopifnot(all(is.finite(clusters)))
+#   stopifnot(is.matrix(clusters))
+#   stopifnot(ncol(clusters) == 3)
+#   stopifnot(all(is.finite(clusters)))
 
-  to01 <- function(x, f = 10) {
-    rng <- max(x) - min(x)
-    if (rng == 0) return(rep(f / 2, length(x)))
-    (x - min(x)) / rng * f
-  }
+#   to01 <- function(x, f = 10) {
+#     rng <- max(x) - min(x)
+#     if (rng == 0) return(rep(f / 2, length(x)))
+#     (x - min(x)) / rng * f
+#   }
 
-  clusters <- apply(clusters, 2, to01)
+#   clusters <- apply(clusters, 2, to01)
 
-  angles <- c(30, 36.8, 23)
-  d <- 50
-  size <- 10
-  sq <- (square(angles, d = d, size = size) |> apply(2, to01, f = 12) |> t() + c(1.5, -1, 0)) |> t()
+#   angles <- c(30, 36.8, 23)
+#   d <- 50
+#   size <- 10
+#   sq <- (square(angles, d = d, size = size) |> apply(2, to01, f = 12) |> t() + c(1.5, -1, 0)) |> t()
 
-  plot.new()
-  plot.window(xlim = c(.15, 1.35) * 10, ylim = c(-.1, 1.1) * 10)
-  segs(sq)
+#   plot.new()
+#   plot.window(xlim = c(.15, 1.35) * 10, ylim = c(-.1, 1.1) * 10)
+#   segs(sq)
 
-  cubes <- apply(clusters, 1, function(x) {
-    list(square(angles, d = d, size = .25, orig = x[c(1,2,3)], scale = TRUE))
-  }) |> lapply(function(x) x[[1]])
+#   cubes <- apply(clusters, 1, function(x) {
+#     list(square(angles, d = d, size = .25, orig = x[c(1,2,3)], scale = TRUE))
+#   }) |> lapply(function(x) x[[1]])
 
-  pos <- sapply(cubes, function(x) max(x[,3]))
-  cubes <- cubes[order(pos)]
+#   pos <- sapply(cubes, function(x) max(x[,3]))
+#   cubes <- cubes[order(pos)]
 
-  set.seed(42)
-  cubes <- cubes[sample(length(cubes), min(1000, length(cubes)))]
+#   set.seed(42)
+#   cubes <- cubes[sample(length(cubes), min(1000, length(cubes)))]
 
-  for(i in seq_along(cubes)) {
-    faces(cubes[[i]], col = col, border = "white")
-  }
+#   for(i in seq_along(cubes)) {
+#     faces(cubes[[i]], col = col, border = "white")
+#   }
 
-  segs(sq, 2)
-}
+#   segs(sq, 2)
+# }
 
-author_block    <- emb[, grepl("^auth_", colnames(emb)), drop = FALSE]
-reference_block <- emb[, grepl("^ref_",  colnames(emb)), drop = FALSE]
-semantic_block  <- emb[, grepl("^sem_",  colnames(emb)), drop = FALSE]
+# author_block    <- emb[, grepl("^auth_", colnames(emb)), drop = FALSE]
+# reference_block <- emb[, grepl("^ref_",  colnames(emb)), drop = FALSE]
+# semantic_block  <- emb[, grepl("^sem_",  colnames(emb)), drop = FALSE]
 
 
-pdf(file.path(fig_dir, "author_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
-get_cube(author_block, viridis::mako(1, begin = .7))
-dev.off()
+# pdf(file.path(fig_dir, "author_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
+# get_cube(author_block, viridis::mako(1, begin = .7))
+# dev.off()
 
-pdf(file.path(fig_dir, "reference_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
-get_cube(reference_block, viridis::mako(1, begin = .7))
-dev.off()
+# pdf(file.path(fig_dir, "reference_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
+# get_cube(reference_block, viridis::mako(1, begin = .7))
+# dev.off()
 
-pdf(file.path(fig_dir, "semantic_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
-get_cube(semantic_block, viridis::mako(1, begin = .7))
-dev.off()
+# pdf(file.path(fig_dir, "semantic_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
+# get_cube(semantic_block, viridis::mako(1, begin = .7))
+# dev.off()
 
-pdf(file.path(fig_dir, "map_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
+# pdf(file.path(fig_dir, "map_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
 
-p <- data |>
-  ggplot(aes(x = lyt_x + rnorm(nrow(data), sd = .05),
-             y = lyt_y + rnorm(nrow(data), sd = .05))) +
-  geom_point(shape = 21, fill = "black", color = "white", size = 1.5, stroke = 0.5) +
-  theme_void() +
-  theme(
-    plot.background = element_rect(fill = "white", colour = NA),
-    panel.background = element_rect(fill = "white", colour = NA)
-  )
+# p <- data |>
+#   ggplot(aes(x = lyt_x + rnorm(nrow(data), sd = .05),
+#              y = lyt_y + rnorm(nrow(data), sd = .05))) +
+#   geom_point(shape = 21, fill = "black", color = "white", size = 1.5, stroke = 0.5) +
+#   theme_void() +
+#   theme(
+#     plot.background = element_rect(fill = "white", colour = NA),
+#     panel.background = element_rect(fill = "white", colour = NA)
+#   )
 
-print(p)
-dev.off()
+# print(p)
+# dev.off()
 
 
 
