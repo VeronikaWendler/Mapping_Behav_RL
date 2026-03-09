@@ -26,7 +26,7 @@ library(memnet)
 # ==============================================================================
 
 cat("Loading data...\n")
-data <- readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered.RDS")
+data <- readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio3.RDS")
 
 # Check what we have
 cat("\n=== DATA SUMMARY ===\n")
@@ -304,7 +304,7 @@ generate_continent_labels <- function(data, centroids,
 # ==============================================================================
 
 create_objective_science_map <- function(data, labels_df, 
-                                         output_file = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/objective_cluster_map.png") {
+                                         output_file = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/objective_cluster_map.png") {
   
   # Prepare data for visualization
   set.seed(42)
@@ -472,8 +472,8 @@ generate_analytics <- function(data, labels_df, centroids) {
     summarise(n_papers = n(), .groups = "drop") %>%
     arrange(continent, desc(n_papers))
   
-  write_csv(continent_summary, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/continent_summary.csv")
-  write_csv(country_mapping, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/country_to_continent_mapping.csv")
+  write_csv(continent_summary, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/continent_summary.csv")
+  write_csv(country_mapping, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/country_to_continent_mapping.csv")
   
   cat("\n=== ANALYTICS SUMMARY ===\n")
   print(continent_summary %>% select(continent_id, n_papers, percent, label_descriptive))
@@ -521,7 +521,7 @@ main <- function() {
   map_plot <- create_objective_science_map(
     data_with_continents,
     labels_df,
-    output_file = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/objective_science_map.png"
+    output_file = "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/objective_science_map.png"
   )
   
   # Step 4: Generate analytics
@@ -530,15 +530,15 @@ main <- function() {
   
   # Step 5: Save updated data
   cat("\nStep 5: Saving updated dataset...\n")
-  saveRDS(data_with_continents, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered_objective.RDS")
-  write_csv(data_with_continents, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/data_cleaned_filtered_tagged_clustered_objective.csv")
+  saveRDS(data_with_continents, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_objective.RDS")
+  write_csv(data_with_continents, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_objective.csv")
   
   cat("\n=== COMPLETION SUMMARY ===\n")
   cat(sprintf("1. Created %d objective continents\n", 
               length(unique(data_with_continents$continent))))
   cat(sprintf("2. Mapped %d countries to continents\n", 
               length(unique(data_with_continents$country))))
-  cat(sprintf("3. Generated labeled map: /rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/objective_science_map.png\n"))
+  cat(sprintf("3. Generated labeled map: /rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/objective_science_map.png\n"))
   cat(sprintf("4. Saved analytics tables\n"))
   cat(sprintf("5. Saved updated data with objective continents\n"))
   
@@ -569,7 +569,7 @@ if (interactive()) {
     theme(legend.position = "none")
   
   interactive_plot <- ggplotly(simple_plot, tooltip = "text")
-  htmlwidgets::saveWidget(interactive_plot, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_300/interactive_map.html")
+  htmlwidgets::saveWidget(interactive_plot, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/interactive_map.html")
 }
 
 cat("\n", strrep("=", 60), "\n", sep="")
