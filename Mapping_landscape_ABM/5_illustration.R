@@ -29,7 +29,7 @@ pacmap <- import("pacmap")
 data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio2.RDS")
 emb  = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
 
-fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000_try"
+fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000_try2"
 dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
 cat("Saving figures to:", fig_dir, "\n")
 
@@ -289,18 +289,54 @@ if (!is.na(tag_col)) {
 
   readr::write_csv(auto_labels, file.path(fig_dir, "semantic_region_auto_labels.csv"))
 
-  # plot with auto labels
-  pdf(file.path(fig_dir, "map_semantic_only_regions_labeled_auto.pdf"),
+    # -----------------------------
+  # 7b) Build a cleaner legend table
+  # -----------------------------
+  top_tags_summary <- top_tags |>
+    group_by(semantic_region) |>
+    summarise(
+      top_tags_5 = paste(head(tag_raw, 5), collapse = " | "),
+      .groups = "drop"
+    )
+
+  region_legend <- region_centroids |>
+    left_join(auto_labels |> select(semantic_region, label_auto), by = "semantic_region") |>
+    left_join(top_tags_summary, by = "semantic_region") |>
+    arrange(semantic_region)
+
+  readr::write_csv(region_legend, file.path(fig_dir, "semantic_region_legend.csv"))
+  saveRDS(region_legend, file.path(fig_dir, "semantic_region_legend.RDS"))
+
+  # plain text legend
+  legend_lines <- region_legend |>
+    mutate(
+      line = paste0(
+        "Region ", semantic_region,
+        " (n=", n_papers, "): ",
+        label_auto,
+        " || Top tags: ", top_tags_5
+      )
+    ) |>
+    pull(line)
+
+  readr::write_lines(legend_lines, file.path(fig_dir, "semantic_region_legend.txt"))
+
+  # -----------------------------
+  # 7c) Plot map with numbers only
+  # -----------------------------
+  pdf(file.path(fig_dir, "map_semantic_only_regions_numbered.pdf"),
       width = 8, height = 8, bg = "white")
 
-  p_regions_lab <- plot_data |>
+  p_regions_num <- plot_data |>
     ggplot(aes(x = lyt_x_sem, y = lyt_y_sem, fill = factor(semantic_region))) +
     geom_point(shape = 21, color = "white", size = 1.0, stroke = 0.15) +
-    geom_text(
-      data = auto_labels,
-      aes(x = cx, y = cy, label = label_auto),
+    geom_label(
+      data = region_legend,
+      aes(x = cx, y = cy, label = semantic_region),
       inherit.aes = FALSE,
-      size = 3.5
+      size = 3.5,
+      label.size = 0.2,
+      fill = "white"
     ) +
     theme_void() +
     theme(
@@ -309,8 +345,31 @@ if (!is.na(tag_col)) {
     ) +
     guides(fill = guide_legend(title = "Semantic region"))
 
-  print(p_regions_lab)
+  print(p_regions_num)
   dev.off()
+
+  # plot with auto labels
+  # pdf(file.path(fig_dir, "map_semantic_only_regions_labeled_auto.pdf"),
+  #     width = 8, height = 8, bg = "white")
+
+  # p_regions_lab <- plot_data |>
+  #   ggplot(aes(x = lyt_x_sem, y = lyt_y_sem, fill = factor(semantic_region))) +
+  #   geom_point(shape = 21, color = "white", size = 1.0, stroke = 0.15) +
+  #   geom_text(
+  #     data = auto_labels,
+  #     aes(x = cx, y = cy, label = label_auto),
+  #     inherit.aes = FALSE,
+  #     size = 3.5
+  #   ) +
+  #   theme_void() +
+  #   theme(
+  #     plot.background = element_rect(fill = "white", colour = NA),
+  #     panel.background = element_rect(fill = "white", colour = NA)
+  #   ) +
+  #   guides(fill = guide_legend(title = "Semantic region"))
+
+  # print(p_regions_lab)
+  # dev.off()
 
 } else {
   warning("No tags column found. Skipping tag summaries and auto labels.")
