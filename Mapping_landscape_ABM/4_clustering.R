@@ -153,7 +153,7 @@ clusters <- as_tibble(lyt, rownames = "id") |>
       country %in% c(2, 5, 7, 10, 11, 12, 13, 28) ~ 2,
       country %in% c(3, 4, 6, 8, 25, 27, 29) ~ 3,
       country %in% c(9, 14, 19, 30 ) ~ 4,
-      country %in% c(5, 20, 22, 23, 24 ) ~ 5,
+      country %in% c(15, 20, 22, 23, 24 ) ~ 5,
       country %in% c(16, 21, 26) ~ 6,
       TRUE ~ NA_real_
       )
