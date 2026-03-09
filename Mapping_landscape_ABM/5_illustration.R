@@ -193,19 +193,19 @@ reference_block <- emb[, grepl("^ref_",  colnames(emb)), drop = FALSE]
 semantic_block  <- emb[, grepl("^sem_",  colnames(emb)), drop = FALSE]
 
 
-pdf(file.path(fig_dir, "author_MN_ratio_3.pdf"), width = 8, height = 8, bg = "white")
+pdf(file.path(fig_dir, "author_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
 get_cube(author_block, viridis::mako(1, begin = .7))
 dev.off()
 
-pdf(file.path(fig_dir, "reference_MN_ratio_3.pdf"), width = 8, height = 8, bg = "white")
+pdf(file.path(fig_dir, "reference_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
 get_cube(reference_block, viridis::mako(1, begin = .7))
 dev.off()
 
-pdf(file.path(fig_dir, "semantic_MN_ratio_3.pdf"), width = 8, height = 8, bg = "white")
+pdf(file.path(fig_dir, "semantic_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
 get_cube(semantic_block, viridis::mako(1, begin = .7))
 dev.off()
 
-pdf(file.path(fig_dir, "map_MN_ratio_3.pdf"), width = 8, height = 8, bg = "white")
+pdf(file.path(fig_dir, "map_MN_ratio_2.pdf"), width = 8, height = 8, bg = "white")
 
 p <- data |>
   ggplot(aes(x = lyt_x + rnorm(nrow(data), sd = .05),
