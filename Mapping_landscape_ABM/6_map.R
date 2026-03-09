@@ -7,7 +7,7 @@ if (!requireNamespace("memnet", quietly = TRUE)) {
 }
 library(memnet)
 
-data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_v2.RDS")
+data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio3")
 
 set.seed(42)
 data = data |> 

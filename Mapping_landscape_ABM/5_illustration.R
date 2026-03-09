@@ -138,7 +138,7 @@ pacmap = import("pacmap")
 set.seed(42)
 
 model = pacmap$PaCMAP(
-  n_components=as.integer(2),
+  n_components=as.integer(3),
   n_neighbors=as.integer(50), 
   MN_ratio=2,
   FP_ratio=10.0,
@@ -151,7 +151,7 @@ get_cube <- function(emb, col){
   clusters <- as.matrix(clusters)
 
   stopifnot(is.matrix(clusters))
-  stopifnot(ncol(clusters) == 2)
+  stopifnot(ncol(clusters) == 3)
   stopifnot(all(is.finite(clusters)))
 
   to01 <- function(x, f = 10) {
