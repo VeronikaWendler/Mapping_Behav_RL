@@ -97,10 +97,45 @@ readr::write_lines(semantic_lines,   file.path(out_dir, "semantic_net.txt"))
 stopifnot(is.matrix(emb))
 storage.mode(emb) <- "double"
 
-
-pacmap <- import("pacmap")
+if (!requireNamespace("uwot", quietly = TRUE)) {
+  install.packages("uwot", repos = "https://cloud.r-project.org")
+}
+library(uwot)
 
 set.seed(42)
+
+lyt <- uwot::umap(
+  X = emb,
+  n_neighbors = 30,
+  min_dist = 0.05,
+  metric = "cosine",
+  n_components = 2,
+  verbose = TRUE
+)
+
+lyt <- as.matrix(lyt)
+cat("R dim:", paste(dim(lyt), collapse = " x "), "\n")
+stopifnot(ncol(lyt) == 2)
+
+colnames(lyt) <- c("lyt_x", "lyt_y")
+rownames(lyt) <- rownames(emb)
+
+cluster = hclust(dist(lyt), method = "ward.D2")
+clustering = cutree(cluster, 15)
+
+png(file.path(out_dir, "umap_clusters_wardD2_15clust.png"), width = 1200, height = 900)
+j <- matrix(rnorm(nrow(lyt) * 2, sd = .05), ncol = 2)
+plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch = 16, cex = 1, col = clustering + 3)
+invisible(sapply(1:max(clustering), function(k) {
+  text(mean(lyt[clustering == k, 1]), mean(lyt[clustering == k, 2]), labels = k, col = "grey50")
+}))
+dev.off()
+
+
+
+# pacmap <- import("pacmap")
+
+# set.seed(42)
 
 # for ward 2_2
 # model <- pacmap$PaCMAP(
@@ -111,50 +146,52 @@ set.seed(42)
 #   distance     = "angular"
 # )
 
-# for ward 2 _3 
-model <- pacmap$PaCMAP(
-  n_components = as.integer(2),
-  n_neighbors  = as.integer(25),
-  MN_ratio     = 1.0,
-  FP_ratio     = 4.0,
-  distance     = "angular"
-)
+# # for ward 2 _3 
+# model <- pacmap$PaCMAP(
+#   n_components = as.integer(2),
+#   n_neighbors  = as.integer(25),
+#   MN_ratio     = 1.0,
+#   FP_ratio     = 4.0,
+#   distance     = "angular"
+# )
 
-lyt_raw <- model$fit_transform(as.matrix(emb))
 
-if (reticulate::is_py_object(lyt_raw)) {
-  shape <- reticulate::py_to_r(lyt_raw$shape)
-  cat("numpy shape:", shape[1], "x", shape[2], "\n")
-  lyt <- reticulate::py_to_r(lyt_raw)
-} else {
-  cat("fit_transform returned R object of class:", class(lyt_raw), "\n")
-  if (is.numeric(lyt_raw) && length(lyt_raw) == nrow(emb) * 2) {
-    lyt <- matrix(lyt_raw, ncol = 2, byrow = TRUE)
-  } else {
-    lyt <- as.matrix(lyt_raw)
-  }
-}
 
-cat("R dim:", paste(dim(lyt), collapse=" x "), "\n")
-stopifnot(ncol(lyt) == 2)
+# lyt_raw <- model$fit_transform(as.matrix(emb))
 
-colnames(lyt) <- c("lyt_x", "lyt_y")
-rownames(lyt) <- rownames(emb)
+# if (reticulate::is_py_object(lyt_raw)) {
+#   shape <- reticulate::py_to_r(lyt_raw$shape)
+#   cat("numpy shape:", shape[1], "x", shape[2], "\n")
+#   lyt <- reticulate::py_to_r(lyt_raw)
+# } else {
+#   cat("fit_transform returned R object of class:", class(lyt_raw), "\n")
+#   if (is.numeric(lyt_raw) && length(lyt_raw) == nrow(emb) * 2) {
+#     lyt <- matrix(lyt_raw, ncol = 2, byrow = TRUE)
+#   } else {
+#     lyt <- as.matrix(lyt_raw)
+#   }
+# }
 
-cluster = hclust(dist(lyt), method = "ward.D2")       # instead of complete do ward.D2
-clustering = cutree(cluster, 15)
+# cat("R dim:", paste(dim(lyt), collapse=" x "), "\n")
+# stopifnot(ncol(lyt) == 2)
 
-# j <- matrix(rnorm(nrow(lyt)*2, sd=.3), ncol=2)
+# colnames(lyt) <- c("lyt_x", "lyt_y")
+# rownames(lyt) <- rownames(emb)
+
+# cluster = hclust(dist(lyt), method = "ward.D2")       # instead of complete do ward.D2
+# clustering = cutree(cluster, 15)
+
+# # j <- matrix(rnorm(nrow(lyt)*2, sd=.3), ncol=2)
+# # plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
+# # sapply(1:max(clustering), function(x) text(mean(lyt[clustering==x,1]), mean(lyt[clustering==x,2]), label = x, col="grey50"))
+
+# png(file.path(out_dir, "pacmap_clusters_ward_D2_3_15clust.png"), width=1200, height=900)
+# j <- matrix(rnorm(nrow(lyt)*2, sd=.05), ncol=2)
 # plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
-# sapply(1:max(clustering), function(x) text(mean(lyt[clustering==x,1]), mean(lyt[clustering==x,2]), label = x, col="grey50"))
-
-png(file.path(out_dir, "pacmap_clusters_ward_D2_3_15clust.png"), width=1200, height=900)
-j <- matrix(rnorm(nrow(lyt)*2, sd=.05), ncol=2)
-plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
-invisible(sapply(1:max(clustering), function(k) {
-  text(mean(lyt[clustering==k,1]), mean(lyt[clustering==k,2]), labels = k, col="grey50")
-}))
-dev.off()
+# invisible(sapply(1:max(clustering), function(k) {
+#   text(mean(lyt[clustering==k,1]), mean(lyt[clustering==k,2]), labels = k, col="grey50")
+# }))
+# dev.off()
 
 
 # clusters <- as_tibble(lyt, rownames = "id") |>
