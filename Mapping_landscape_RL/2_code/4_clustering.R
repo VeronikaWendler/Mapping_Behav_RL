@@ -5,7 +5,7 @@ Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
 use_condaenv("mapping_abm", required=TRUE)
 print(py_config())
 require(remotes)
-Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
+Rcpp::sourceCpp("Mapping_landscape_RL/2_code/_helpers.cpp")
 
 if (!requireNamespace("memnet", quietly = TRUE)) {
   remotes::install_github("dwulff/memnet")
