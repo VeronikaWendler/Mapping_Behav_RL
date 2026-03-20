@@ -102,11 +102,21 @@ pacmap <- import("pacmap")
 
 set.seed(42)
 
+# for ward 2_2
+# model <- pacmap$PaCMAP(
+#   n_components = as.integer(2),
+#   n_neighbors  = as.integer(20),
+#   MN_ratio     = 0.5,
+#   FP_ratio     = 2.0,
+#   distance     = "angular"
+# )
+
+# for ward 2 _3 
 model <- pacmap$PaCMAP(
   n_components = as.integer(2),
-  n_neighbors  = as.integer(20),
-  MN_ratio     = 0.5,
-  FP_ratio     = 2.0,
+  n_neighbors  = as.integer(25),
+  MN_ratio     = 1.0,
+  FP_ratio     = 4.0,
   distance     = "angular"
 )
 
@@ -138,7 +148,7 @@ clustering = cutree(cluster, 30)
 # plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
 # sapply(1:max(clustering), function(x) text(mean(lyt[clustering==x,1]), mean(lyt[clustering==x,2]), label = x, col="grey50"))
 
-png(file.path(out_dir, "pacmap_clusters_ward_D2_2.png"), width=1200, height=900)
+png(file.path(out_dir, "pacmap_clusters_ward_D2_3.png"), width=1200, height=900)
 j <- matrix(rnorm(nrow(lyt)*2, sd=.05), ncol=2)
 plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
 invisible(sapply(1:max(clustering), function(k) {
