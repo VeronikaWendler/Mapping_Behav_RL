@@ -43,7 +43,7 @@ def run(system: str, user: str, timeout: int = TIMEOUT, max_retries: int = RETRI
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        "max_tokens": 150,
+        "max_tokens": 250,
     }
 
     last_err = None
@@ -98,6 +98,8 @@ system_prompt = (
     "You analyze academic papers to generate precise, contextually relevant taxonomic tags.\n"
 )
 
+
+
 task_description = (
   "Analyze the provided Title and Abstract to generate precise taxonomic tags characterizing the paper's core **subject** and **methodology**. Your main task is to balance **concept normalization** with **verbatim extraction**.\n"
   "\n"  
@@ -110,6 +112,8 @@ task_description = (
   "2. Ensure a balance between subject and methodology.\n"
   "3. Tags should be concise (ideally 1-3 words), but a specific verbatim phrase may be longer if necessary.\n"
 )
+
+
 
 output_format_instructions = (
     "**Output Structure:**\n"

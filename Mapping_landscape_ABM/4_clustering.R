@@ -128,14 +128,14 @@ stopifnot(ncol(lyt) == 2)
 colnames(lyt) <- c("lyt_x", "lyt_y")
 rownames(lyt) <- rownames(emb)
 
-cluster = hclust(dist(lyt), method = "complete")
+cluster = hclust(dist(lyt), method = "ward.D2")       # instead of complete do ward.D2
 clustering = cutree(cluster, 30)
 
 # j <- matrix(rnorm(nrow(lyt)*2, sd=.3), ncol=2)
 # plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
 # sapply(1:max(clustering), function(x) text(mean(lyt[clustering==x,1]), mean(lyt[clustering==x,2]), label = x, col="grey50"))
 
-png(file.path(out_dir, "pacmap_clusters_MN_ratio3.png"), width=1200, height=900)
+png(file.path(out_dir, "pacmap_clusters_ward_D2.png"), width=1200, height=900)
 j <- matrix(rnorm(nrow(lyt)*2, sd=.05), ncol=2)
 plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
 invisible(sapply(1:max(clustering), function(k) {
@@ -144,20 +144,20 @@ invisible(sapply(1:max(clustering), function(k) {
 dev.off()
 
 
-clusters <- as_tibble(lyt, rownames = "id") |>
-  mutate(
-    id = as.integer(id),   
-    country = clustering,
-    continent=case_when(
-      country %in% c(1, 17, 18 ) ~ 1,
-      country %in% c(2, 5, 7, 10, 11, 12, 13, 28) ~ 2,
-      country %in% c(3, 4, 6, 8, 25, 27, 29) ~ 3,
-      country %in% c(9, 14, 19, 30 ) ~ 4,
-      country %in% c(15, 20, 22, 23, 24 ) ~ 5,
-      country %in% c(16, 21, 26) ~ 6,
-      TRUE ~ NA_real_
-      )
-  )
+# clusters <- as_tibble(lyt, rownames = "id") |>
+#   mutate(
+#     id = as.integer(id),   
+#     country = clustering,
+#     continent=case_when(
+#       country %in% c(1, 17, 18 ) ~ 1,
+#       country %in% c(2, 5, 7, 10, 11, 12, 13, 28) ~ 2,
+#       country %in% c(3, 4, 6, 8, 25, 27, 29) ~ 3,
+#       country %in% c(9, 14, 19, 30 ) ~ 4,
+#       country %in% c(15, 20, 22, 23, 24 ) ~ 5,
+#       country %in% c(16, 21, 26) ~ 6,
+#       TRUE ~ NA_real_
+#       )
+#   )
 
 # 1              1, 17, 18                            588           3
 # 2              2 2, 5, 7, 10, 11, 12, 13, 28         2385           8

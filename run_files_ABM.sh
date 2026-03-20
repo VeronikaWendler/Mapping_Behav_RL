@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=5_illustration.R                   # should be changed to whatever you are running, otherwise confusion 
+#SBATCH --job-name=ABM_code                   # should be changed to whatever you are running, otherwise confusion 
 #SBATCH --account=zhanglp-vwendler-core
 #SBATCH --qos=bbgpu
 #SBATCH --gres=gpu:4
@@ -34,5 +34,5 @@ export PYTHONNOUSERSITE=1
 
 cd ~/projects/Mapping_Behav_RL
 
-Rscript Mapping_landscape_ABM/5_illustration.R     # or python or Rscript ##
+Rscript Mapping_landscape_ABM/4_clustering.R     # or python or Rscript ##
 
