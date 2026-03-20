@@ -1,9 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=ABM_code                   # should be changed to whatever you are running, otherwise confusion 
 #SBATCH --account=zhanglp-vwendler-core
-#SBATCH --qos=bbgpu
-#SBATCH --gres=gpu:4
-#SBATCH --cpus-per-task=6
+#SBATCH --qos=bbdefault
+#SBATCH --cpus-per-task=16
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/%x.%j.out
