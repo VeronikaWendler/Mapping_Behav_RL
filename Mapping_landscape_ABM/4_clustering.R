@@ -97,13 +97,11 @@ readr::write_lines(semantic_lines,   file.path(out_dir, "semantic_net.txt"))
 stopifnot(is.matrix(emb))
 storage.mode(emb) <- "double"
 
-pacmap <- import("pacmap")
-set.seed(42)
 model <- pacmap$PaCMAP(
   n_components = as.integer(2),
-  n_neighbors  = as.integer(50),
-  MN_ratio     = 2,               # was 3
-  FP_ratio     = 10.0,
+  n_neighbors  = as.integer(20),
+  MN_ratio     = 0.5,
+  FP_ratio     = 2.0,
   distance     = "angular"
 )
 
@@ -135,7 +133,7 @@ clustering = cutree(cluster, 30)
 # plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
 # sapply(1:max(clustering), function(x) text(mean(lyt[clustering==x,1]), mean(lyt[clustering==x,2]), label = x, col="grey50"))
 
-png(file.path(out_dir, "pacmap_clusters_ward_D2.png"), width=1200, height=900)
+png(file.path(out_dir, "pacmap_clusters_ward_D2_2.png"), width=1200, height=900)
 j <- matrix(rnorm(nrow(lyt)*2, sd=.05), ncol=2)
 plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch=16, cex=1, col=clustering + 3)
 invisible(sapply(1:max(clustering), function(k) {
