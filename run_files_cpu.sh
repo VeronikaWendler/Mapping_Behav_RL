@@ -30,5 +30,5 @@ export RETRIES=6
 unset FORCE_START
 
 export PYTHONPATH="/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/py_pkgs:${PYTHONPATH:-}"
-cd ~/projects/Mapping_Behav_RL
+cd ~/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/Mapping_Behav_RL
 Rscript /rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/2_code/4_clustering.R
