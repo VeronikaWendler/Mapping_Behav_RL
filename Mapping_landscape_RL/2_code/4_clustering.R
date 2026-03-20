@@ -13,15 +13,15 @@ if (!requireNamespace("memnet", quietly = TRUE)) {
 library(memnet)
 
 
-data = readRDS("Mapping_landscape_RL/1_data/data_cleaned_filtered_tagged.RDS") %>% 
+data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/1_data/data_cleaned_filtered_tagged.RDS") %>% 
   mutate(title_id = paste0(id, "_", str_to_lower(`Title`)))
 
 
 # COMBINE EMB -----------
 
-author_emb = readRDS("Mapping_landscape_RL/1_data/embs/author_emb.RDS")
-references_emb = readRDS("Mapping_landscape_RL/1_data/embs/references_emb.RDS")
-semantic_emb = readRDS("Mapping_landscape_RL/1_data/embs/semantic_emb.RDS")
+author_emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/1_data/embs/author_emb.RDS")
+references_emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/1_data/embs/references_emb.RDS")
+semantic_emb = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/1_data/embs/semantic_emb.RDS")
 
 author_norms = apply(author_emb, 2, function(x) sqrt(sum(x^2)))
 references_norms = apply(references_emb, 2, function(x) sqrt(sum(x^2)))
@@ -33,7 +33,7 @@ references_emb = references_emb / (mean(references_norms)/mean(semantic_norms))
 emb = author_emb |> cbind(references_emb) |> cbind(semantic_emb)
 colnames(emb) = c(paste0("auth_", 1:384), paste0("ref_", 1:384), paste0("sem_", 1:384))
 rownames(emb) = data$id
-saveRDS(emb, "Mapping_landscape_RL/embs/combined_emb.RDS")
+saveRDS(emb, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/embs/combined_emb.RDS")
 
 author_net = embedR::er_compare_vectors(author_emb, metric="arccos")
 references_net = embedR::er_compare_vectors(references_emb, metric="arccos")
@@ -43,9 +43,9 @@ author_lines = sapply(1:nrow(author_net), function(x) paste0(author_net[i,], col
 references_lines = sapply(1:nrow(references_net), function(x) paste0(references_net[i,], collapse=","))
 semantic_lines = sapply(1:nrow(semantic_net), function(x) paste0(semantic_net[i,], collapse=","))
 
-write_lines(author_lines, "Mapping_landscape_RL/1_data/embs/author_net.txt")
-write_lines(references_lines, "Mapping_landscape_RL/1_data/embs/references_net.txt")
-write_lines(semantic_lines, "Mapping_landscape_RL/1_data/embs/semantic_net.txt")
+write_lines(author_lines, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/1_data/embs/author_net.txt")
+write_lines(references_lines, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/1_data/embs/references_net.txt")
+write_lines(semantic_lines, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/1_data/embs/semantic_net.txt")
 
 # CLUSTER ----------
 
@@ -101,7 +101,7 @@ invisible(sapply(
 
 # save as PNG
 png(
-  "Mapping_landscape_RL/1_data/cluster_plot.png",
+  "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/1_data/cluster_plot.png",
   width = 2400,
   height = 2400,
   res = 300
@@ -135,5 +135,5 @@ clusters = as_tibble(lyt) |>
          id = data$id)
 
 data = data |> left_join(clusters, by = "id")
-saveRDS(data, "1_data/data_cleaned_filtered_tagged_clustered.RDS")
+saveRDS(data, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Mapping_landscape_RL/1_data/data_cleaned_filtered_tagged_clustered.RDS")
 
