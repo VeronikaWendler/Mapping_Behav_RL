@@ -32,15 +32,6 @@ use_condaenv("mapping_abm", required = TRUE)
 print(py_config())
 
 # -----------------------------
-# COMPILED HELPERS
-# -----------------------------
-helpers_cpp <- file.path(ABM_ROOT, "_helpers.cpp")
-if (!file.exists(helpers_cpp)) {
-  stop("Could not find helper file: ", helpers_cpp)
-}
-Rcpp::sourceCpp(helpers_cpp)
-
-# -----------------------------
 # MEMNET INSTALL CHECK
 # -----------------------------
 if (!requireNamespace("memnet", quietly = TRUE)) {
