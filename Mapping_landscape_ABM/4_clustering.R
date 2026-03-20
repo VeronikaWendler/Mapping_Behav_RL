@@ -97,6 +97,11 @@ readr::write_lines(semantic_lines,   file.path(out_dir, "semantic_net.txt"))
 stopifnot(is.matrix(emb))
 storage.mode(emb) <- "double"
 
+
+pacmap <- import("pacmap")
+
+set.seed(42)
+
 model <- pacmap$PaCMAP(
   n_components = as.integer(2),
   n_neighbors  = as.integer(20),
