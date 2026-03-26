@@ -106,14 +106,24 @@ storage.mode(emb) <- "double"
 if (!requireNamespace("uwot", quietly = TRUE)) {
   install.packages("uwot", repos = "https://cloud.r-project.org")
 }
+# for umpa and not pacmap
 library(uwot)
 
 set.seed(42)
 
+# lyt <- uwot::umap(
+#   X = emb,
+#   n_neighbors = 30,
+#   min_dist = 0.05,
+#   metric = "cosine",
+#   n_components = 2,
+#   verbose = TRUE
+# )
+
 lyt <- uwot::umap(
   X = emb,
-  n_neighbors = 30,
-  min_dist = 0.05,
+  n_neighbors = 15,
+  min_dist = 0.25,
   metric = "cosine",
   n_components = 2,
   verbose = TRUE
@@ -129,7 +139,7 @@ rownames(lyt) <- rownames(emb)
 cluster = hclust(dist(lyt), method = "ward.D2")
 clustering = cutree(cluster, 15)
 
-png(file.path(out_dir, "umap_clusters_wardD2_15clust.png"), width = 1200, height = 900)
+png(file.path(out_dir, "umap_clusters_wardD2_15clust_15neighb_0_25mindist.png"), width = 1200, height = 900)
 j <- matrix(rnorm(nrow(lyt) * 2, sd = .05), ncol = 2)
 plot(lyt[,1] + j[,1], lyt[,2] + j[,2], pch = 16, cex = 1, col = clustering + 3)
 invisible(sapply(1:max(clustering), function(k) {
