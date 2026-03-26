@@ -83,7 +83,7 @@ colnames(emb) <- c(
 )
 
 rownames(emb) = data$id
-saveRDS(emb, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_1.5sem_0.75aut_ref/combined_emb.RDS")
+saveRDS(emb, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_1_5sem_0_75aut_ref/combined_emb.RDS")
 
 author_net = embedR::er_compare_vectors(author_emb, metric="arccos")
 references_net = embedR::er_compare_vectors(references_emb, metric="arccos")
