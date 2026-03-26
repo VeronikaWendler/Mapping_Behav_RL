@@ -68,6 +68,12 @@ cat(sprintf("Scale factors: author_scale=%.6f ; ref_scale=%.6f\n",
 author_emb     <- author_emb / author_scale
 references_emb <- references_emb / ref_scale
 
+emb = cbind(
+  author_emb * 0.75,
+  references_emb * 0.75,
+  semantic_emb * 1.5
+)
+
 
 emb = author_emb |> cbind(references_emb) |> cbind(semantic_emb)
 colnames(emb) <- c(
@@ -77,7 +83,7 @@ colnames(emb) <- c(
 )
 
 rownames(emb) = data$id
-saveRDS(emb, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
+saveRDS(emb, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_1.5sem_0.75aut_ref/combined_emb.RDS")
 
 author_net = embedR::er_compare_vectors(author_emb, metric="arccos")
 references_net = embedR::er_compare_vectors(references_emb, metric="arccos")
