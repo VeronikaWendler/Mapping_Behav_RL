@@ -75,7 +75,7 @@ emb = cbind(
 )
 
 
-emb = author_emb |> cbind(references_emb) |> cbind(semantic_emb)
+# emb = author_emb |> cbind(references_emb) |> cbind(semantic_emb)
 colnames(emb) <- c(
   paste0("auth_", seq_len(ncol(author_emb))),
   paste0("ref_",  seq_len(ncol(references_emb))),
