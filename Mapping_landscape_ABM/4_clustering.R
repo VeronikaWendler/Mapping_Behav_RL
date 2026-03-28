@@ -86,7 +86,7 @@ colnames(emb) <- c(
 dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_2sem_0_5aut_ref"
 dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 rownames(emb) <- data$id
-saveRDS(emb, file.path(out_dir, "combined_emb.RDS"))
+saveRDS(emb, file.path(dir, "combined_emb.RDS"))
 
 author_net = embedR::er_compare_vectors(author_emb, metric="arccos")
 references_net = embedR::er_compare_vectors(references_emb, metric="arccos")
