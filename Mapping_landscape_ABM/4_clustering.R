@@ -69,8 +69,8 @@ author_emb     <- author_emb / author_scale
 references_emb <- references_emb / ref_scale
 
 emb = cbind(
-  author_emb * 0.5,
-  references_emb * 0.5,
+  author_emb * 0.25,
+  references_emb * 0.25,
   semantic_emb * 2
 )
 
@@ -83,7 +83,7 @@ colnames(emb) <- c(
 )
 
 
-dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_2sem_0_5aut_ref"
+dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_2sem_0_25aut_ref"
 dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 rownames(emb) <- data$id
 saveRDS(emb, file.path(dir, "combined_emb.RDS"))
@@ -96,7 +96,7 @@ author_lines <- apply(author_net, 1, paste, collapse = ",")
 references_lines <- apply(references_net, 1, paste, collapse = ",")
 semantic_lines <- apply(semantic_net, 1, paste, collapse = ",")
 
-out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_2sem_0_5aut_ref/nets"
+out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_2sem_0_25aut_ref/nets"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 readr::write_lines(author_lines,     file.path(out_dir, "author_net.txt"))
 readr::write_lines(references_lines, file.path(out_dir, "references_net.txt"))
