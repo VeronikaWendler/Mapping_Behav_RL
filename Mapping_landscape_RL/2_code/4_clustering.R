@@ -12,7 +12,7 @@ if (!requireNamespace("memnet", quietly = TRUE)) {
 }
 library(memnet)
 
-
+###
 CODE_ROOT <- Sys.getenv("CODE_ROOT", unset = path.expand("~/projects/Mapping_Behav_RL"))
 ABM_ROOT  <- Sys.getenv("ABM_ROOT",  unset = path.expand("~/projects/Mapping_landscape_ABM"))
 DATA_ROOT <- Sys.getenv(

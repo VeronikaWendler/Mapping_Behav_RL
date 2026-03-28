@@ -65,14 +65,37 @@ ref_scale    <- mean(references_norms) / mean(semantic_norms)
 cat(sprintf("Scale factors: author_scale=%.6f ; ref_scale=%.6f\n",
             author_scale, ref_scale))
 
-author_emb     <- author_emb / author_scale
-references_emb <- references_emb / ref_scale
+# author_emb     <- author_emb / author_scale
+# references_emb <- references_emb / ref_scale
 
-emb = cbind(
-  author_emb * 0.25,
-  references_emb * 0.25,
-  semantic_emb * 2
+# emb = cbind(
+#   author_emb * 0.25,
+#   references_emb * 0.25,
+#   semantic_emb * 2
+# )
+#
+
+
+
+row_l2_normalize <- function(mat) {
+  mat <- as.matrix(mat)
+  rs <- sqrt(rowSums(mat^2))
+  rs[rs == 0] <- 1
+  mat / rs
+}
+
+author_emb     <- row_l2_normalize(author_emb)
+references_emb <- row_l2_normalize(references_emb)
+semantic_emb   <- row_l2_normalize(semantic_emb)
+
+emb <- cbind(
+  author_emb * 0.20,
+  references_emb * 0.20,
+  semantic_emb * 2.50
 )
+
+
+
 
 
 # emb = author_emb |> cbind(references_emb) |> cbind(semantic_emb)
@@ -83,7 +106,7 @@ colnames(emb) <- c(
 )
 
 
-dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_2sem_0_25aut_ref"
+dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca_2sem_0_25aut_ref"
 dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 rownames(emb) <- data$id
 saveRDS(emb, file.path(dir, "combined_emb.RDS"))
@@ -96,7 +119,7 @@ author_lines <- apply(author_net, 1, paste, collapse = ",")
 references_lines <- apply(references_net, 1, paste, collapse = ",")
 semantic_lines <- apply(semantic_net, 1, paste, collapse = ",")
 
-out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_2sem_0_25aut_ref/nets"
+out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca_2sem_0_25aut_ref/nets"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 readr::write_lines(author_lines,     file.path(out_dir, "author_net.txt"))
 readr::write_lines(references_lines, file.path(out_dir, "references_net.txt"))
@@ -123,14 +146,28 @@ set.seed(42)
 #   verbose = TRUE
 # )
 
+# lyt <- uwot::umap(
+#   X = emb,
+#   n_neighbors = 15,
+#   min_dist = 0.25,
+#   metric = "cosine",
+#   n_components = 2,
+#   verbose = TRUE
+# )
+
+pca <- prcomp(emb, center = TRUE, scale. = FALSE)
+emb_pca <- pca$x[, 1:50]
+
 lyt <- uwot::umap(
-  X = emb,
+  X = emb_pca,
   n_neighbors = 15,
   min_dist = 0.25,
+  spread = 3,
   metric = "cosine",
   n_components = 2,
   verbose = TRUE
 )
+
 
 lyt <- as.matrix(lyt)
 cat("R dim:", paste(dim(lyt), collapse = " x "), "\n")
