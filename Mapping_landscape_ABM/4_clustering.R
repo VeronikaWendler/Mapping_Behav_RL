@@ -106,7 +106,7 @@ colnames(emb) <- c(
 )
 
 
-dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca_2sem_0_25aut_ref"
+dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca2_2_5sem_0_2aut_ref"
 dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 rownames(emb) <- data$id
 saveRDS(emb, file.path(dir, "combined_emb.RDS"))
@@ -119,7 +119,7 @@ author_lines <- apply(author_net, 1, paste, collapse = ",")
 references_lines <- apply(references_net, 1, paste, collapse = ",")
 semantic_lines <- apply(semantic_net, 1, paste, collapse = ",")
 
-out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca_2sem_0_25aut_ref/nets"
+out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca2_2_5sem_0_2aut_ref/nets"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 readr::write_lines(author_lines,     file.path(out_dir, "author_net.txt"))
 readr::write_lines(references_lines, file.path(out_dir, "references_net.txt"))
@@ -156,13 +156,14 @@ set.seed(42)
 # )
 
 pca <- prcomp(emb, center = TRUE, scale. = FALSE)
-emb_pca <- pca$x[, 1:50]
+#emb_pca <- pca$x[, 1:50]
+emb_pca <- pca$x[, 1:20]
 
 lyt <- uwot::umap(
   X = emb_pca,
   n_neighbors = 15,
-  min_dist = 0.25,
-  spread = 3,
+  min_dist = 0.5,
+  spread = 5,
   metric = "cosine",
   n_components = 2,
   verbose = TRUE
