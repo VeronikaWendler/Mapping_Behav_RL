@@ -159,7 +159,7 @@ pca <- prcomp(emb, center = TRUE, scale. = FALSE)
 #emb_pca <- pca$x[, 1:50]
 # emb_pca <- pca$x[, 1:20]
 
-emb_pca <- pca$x[, 1:10]
+emb_pca <- pca$x[, 1:20]
 
 
 # lyt <- uwot::umap(
