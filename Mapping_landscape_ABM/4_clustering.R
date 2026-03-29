@@ -109,7 +109,7 @@ colnames(emb) <- c(
   paste0("sem_", seq_len(ncol(semantic_emb)))
 )
 
-dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca4_2sem_0_25aut_ref"
+dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca5_2sem_0_25aut_ref"
 dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 
 rownames(emb) <- data$id
@@ -123,7 +123,7 @@ author_lines <- apply(author_net, 1, paste, collapse = ",")
 references_lines <- apply(references_net, 1, paste, collapse = ",")
 semantic_lines <- apply(semantic_net, 1, paste, collapse = ",")
 
-out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca4_2sem_0_2aut_ref/nets"
+out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca5_2sem_0_2aut_ref/nets"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 readr::write_lines(author_lines, file.path(out_dir, "author_net.txt"))
@@ -184,10 +184,10 @@ colnames(lyt) <- c("lyt_x", "lyt_y")
 rownames(lyt) <- rownames(emb)
 
 cluster <- hclust(dist(lyt), method = "ward.D2")
-clustering <- cutree(cluster, 15)
+clustering <- cutree(cluster, 20)
 
 png(
-  file.path(out_dir, "umap_clusters_wardD2_15clust_15neighb_0_25mindist.png"),
+  file.path(out_dir, "umap_clusters_wardD2_20clust_15neighb_0_25mindist.png"),
   width = 1200,
   height = 900
 )
