@@ -109,7 +109,7 @@ colnames(emb) <- c(
   paste0("sem_", seq_len(ncol(semantic_emb)))
 )
 
-dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca5_2sem_0_25aut_ref"
+dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca5_2sem_0_2aut_ref"
 dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 
 rownames(emb) <- data$id
@@ -212,3 +212,39 @@ invisible(sapply(1:max(clustering), function(k) {
 }))
 
 dev.off()
+
+
+
+clusters <- as_tibble(lyt, rownames = "id") |>
+  mutate(
+    id = as.integer(id),
+    country = clustering,
+    continent=case_when(
+      country %in% c(2, 13, 9) ~ 1,
+      country %in% c(7, 1, 15) ~ 3,
+      country %in% c(4, 12, 18, 11, 3, 19, 10, 17, 5, 16) ~ 4,
+      country %in% c(8) ~ 6,
+      country %in% c(20) ~ 7,
+      country %in% c(6) ~ 8,
+      country %in% c(14) ~ 9,
+      TRUE ~ NA_real_
+    )
+  )
+
+# 1              1, 17, 18                            588           3
+# 2              2 2, 5, 7, 10, 11, 12, 13, 28         2385           8
+# 3              3 3, 4, 6, 8, 25, 27, 29              1391           7
+# 4              4 9, 14, 19, 30                        743           4
+# 5              5 15, 20, 22, 23, 24                   910           5
+# 6              6 16, 21, 26                           453           3
+
+
+data <- data |> left_join(clusters, by = "id")
+saveRDS(data, "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca5_2sem_0_2aut_ref/data_cleaned_filtered_tagged_clustered.RDS")
+
+
+
+
+
+
+
