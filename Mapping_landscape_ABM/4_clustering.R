@@ -95,10 +95,16 @@ author_emb <- row_l2_normalize(author_emb)
 references_emb <- row_l2_normalize(references_emb)
 semantic_emb <- row_l2_normalize(semantic_emb)
 
+# emb <- cbind(
+#   author_emb * 0.20,
+#   references_emb * 0.20,
+#   semantic_emb * 2.50
+# )
+
 emb <- cbind(
-  author_emb * 0.20,
-  references_emb * 0.20,
-  semantic_emb * 2.50
+  author_emb * 0.50,
+  references_emb * 0.50,
+  semantic_emb * 1
 )
 
 # emb = author_emb |> cbind(references_emb) |> cbind(semantic_emb)
@@ -109,7 +115,7 @@ colnames(emb) <- c(
   paste0("sem_", seq_len(ncol(semantic_emb)))
 )
 
-dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca5_2sem_0_2aut_ref"
+dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca6_2sem_0_2aut_ref"
 dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 
 rownames(emb) <- data$id
@@ -123,7 +129,7 @@ author_lines <- apply(author_net, 1, paste, collapse = ",")
 references_lines <- apply(references_net, 1, paste, collapse = ",")
 semantic_lines <- apply(semantic_net, 1, paste, collapse = ",")
 
-out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca5_2sem_0_2aut_ref/nets"
+out_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000_pca6_2sem_0_2aut_ref/nets"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 readr::write_lines(author_lines, file.path(out_dir, "author_net.txt"))
