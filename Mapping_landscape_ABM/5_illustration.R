@@ -1,396 +1,579 @@
 require(tidyverse)
 require(reticulate)
-require(dbscan)
+require(Rcpp)
+require(RcppArmadillo)
+require(viridis)
 
-Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
-use_condaenv("mapping_abm", required = TRUE)
+# -----------------------------
+# PYTHON / PACMAP
+# -----------------------------
+use_python(
+  "C:/Users/vaw508/AppData/Local/anaconda3/envs/mapping_abm/python.exe",
+  required = TRUE
+)
 print(py_config())
-
-source("Mapping_landscape_ABM/_cubes.R")
-require(remotes)
-Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
-
-if (!requireNamespace("memnet", quietly = TRUE)) {
-  remotes::install_github("dwulff/memnet")
-}
-library(memnet)
 
 pacmap <- import("pacmap")
 
 # -----------------------------
-# Load data
+# RCPP HELPERS
 # -----------------------------
-data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio2.RDS")
-emb  = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
+Rcpp::sourceCpp("D:/Birmingham_Uni_Oct25/Papers/Mapping_Behav_RL/Mapping_landscape_ABM/_helpers.cpp")
 
-fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000_try3"
+# -----------------------------
+# PATHS
+# -----------------------------
+base_dir <- "D:/Birmingham_Uni_Oct25/Papers/Mapping_Behav_RL/Mapping_landscape_ABM"
+
+run_dir <- file.path(
+  base_dir,
+  "Data/embeddings/embs_1000/embs_1000_pca9_1sem_1aut_ref"
+)
+
+fig_dir <- file.path(run_dir, "figures/illustration")
 dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
-cat("Saving figures to:", fig_dir, "\n")
 
-stopifnot(nrow(emb) == nrow(data))
-
-# -----------------------------
-# Split embedding blocks
-# -----------------------------
-author_block    <- emb[, grepl("^auth_", colnames(emb)), drop = FALSE]
-reference_block <- emb[, grepl("^ref_",  colnames(emb)), drop = FALSE]
-semantic_block  <- emb[, grepl("^sem_",  colnames(emb)), drop = FALSE]
+source(file.path(base_dir, "/_cubes.R"))
 
 # -----------------------------
-# 3D model for cube illustrations
+# READ DATA
 # -----------------------------
-set.seed(42)
-model3d <- pacmap$PaCMAP(
+data <- readRDS(file.path(run_dir, "data_cleaned_filtered_tagged_clustered.RDS"))
+emb  <- readRDS(file.path(run_dir, "combined_emb.RDS"))
+
+# -----------------------------
+# SPLIT EMBEDDINGS
+# -----------------------------
+author_emb    <- emb[, 1:384, drop = FALSE]
+reference_emb <- emb[, (1:384) + 384, drop = FALSE]
+semantic_emb  <- emb[, (1:384) + 384 * 2, drop = FALSE]
+
+author_net <- arma_cosine(author_emb)
+author_net[is.na(author_net)] <- 0
+
+reference_net <- arma_cosine(reference_emb)
+reference_net[is.na(reference_net)] <- 0
+
+semantic_net <- arma_cosine(semantic_emb)
+semantic_net[is.na(semantic_net)] <- 0
+
+rownames(author_net) <- rownames(reference_net) <- rownames(semantic_net) <- data$title_id
+colnames(author_net) <- colnames(reference_net) <- colnames(semantic_net) <- data$title_id
+
+# -----------------------------
+# PACMAP 3D MODEL
+# -----------------------------
+model <- pacmap$PaCMAP(
   n_components = as.integer(3),
-  n_neighbors  = as.integer(50),
+  n_neighbors  = as.integer(100),
   MN_ratio     = 2,
-  FP_ratio     = 10.0,
+  FP_ratio     = 20.0,
   distance     = "angular"
 )
 
-get_cube <- function(emb_mat, col) {
-  clusters_raw <- model3d$fit_transform(as.matrix(emb_mat))
-  clusters <- reticulate::py_to_r(clusters_raw)
-  clusters <- as.matrix(clusters)
-
-  stopifnot(is.matrix(clusters))
-  stopifnot(ncol(clusters) == 3)
-  stopifnot(all(is.finite(clusters)))
-
+# -----------------------------
+# CUBE PLOTTING FUNCTION
+# -----------------------------
+get_cube <- function(emb, col) {
+  
+  clusters <- model$fit_transform(emb)
+  
   to01 <- function(x, f = 10) {
-    rng <- max(x) - min(x)
-    if (rng == 0) return(rep(f / 2, length(x)))
-    (x - min(x)) / rng * f
+    (x - min(x)) / (max(x) - min(x)) * f
   }
-
+  
   clusters <- apply(clusters, 2, to01)
-
+  
   angles <- c(30, 36.8, 23)
   d <- 50
   size <- 10
-  sq <- (square(angles, d = d, size = size) |>
-           apply(2, to01, f = 12) |>
-           t() + c(1.5, -1, 0)) |>
+  
+  sq <- (
+    square(angles, d = d, size = size) |>
+      apply(2, to01, f = 12) |>
+      t() + c(1.5, -1, 0)
+  ) |>
     t()
-
+  
   plot.new()
   plot.window(xlim = c(.15, 1.35) * 10, ylim = c(-.1, 1.1) * 10)
   segs(sq)
-
+  
   cubes <- apply(clusters, 1, function(x) {
-    list(square(angles, d = d, size = .25, orig = x[c(1, 2, 3)], scale = TRUE))
+    list(square(
+      angles,
+      d = d,
+      size = .25,
+      orig = x[c(1, 2, 3)],
+      scale = TRUE
+    ))
   }) |>
     lapply(function(x) x[[1]])
-
+  
   pos <- sapply(cubes, function(x) max(x[, 3]))
+  clusters <- clusters[order(pos), ]
   cubes <- cubes[order(pos)]
-
+  
   set.seed(42)
   cubes <- cubes[sample(length(cubes), min(1000, length(cubes)))]
-
+  
   for (i in seq_along(cubes)) {
     faces(cubes[[i]], col = col, border = "white")
   }
-
+  
   segs(sq, 2)
 }
 
 # -----------------------------
-# Save cube illustrations
+# OUTPUT FIGURES
 # -----------------------------
-pdf(file.path(fig_dir, "author_cube.pdf"), width = 8, height = 8, bg = "white")
-get_cube(author_block, viridis::mako(1, begin = .7))
+png(
+  file.path(fig_dir, "author.png"),
+  width = 8, height = 8, res = 300, units = "in", bg = "transparent"
+)
+get_cube(author_emb, viridis::mako(1, begin = .7, alpha = .7))
 dev.off()
 
-pdf(file.path(fig_dir, "reference_cube.pdf"), width = 8, height = 8, bg = "white")
-get_cube(reference_block, viridis::mako(1, begin = .5))
+png(
+  file.path(fig_dir, "reference.png"),
+  width = 8, height = 8, res = 300, units = "in", bg = "transparent"
+)
+get_cube(reference_emb, viridis::mako(1, begin = .5, alpha = .7))
 dev.off()
 
-pdf(file.path(fig_dir, "semantic_cube.pdf"), width = 8, height = 8, bg = "white")
-get_cube(semantic_block, viridis::mako(1, begin = .3))
+png(
+  file.path(fig_dir, "semantic.png"),
+  width = 8, height = 8, res = 300, units = "in", bg = "transparent"
+)
+get_cube(semantic_emb, viridis::mako(1, begin = .3, alpha = .7))
 dev.off()
 
-# -----------------------------
-# Helper function for 2D region maps
-# -----------------------------
-make_2d_region_map <- function(
-  emb_mat,
-  data,
-  prefix,
-  fig_dir,
-  n_neighbors = 50,
-  MN_ratio = 2,
-  FP_ratio = 10,
-  minPts = 25
-) {
-  cat("Starting:", prefix, "\n")
-
-  model2d <- pacmap$PaCMAP(
-    n_components = as.integer(2),
-    n_neighbors  = as.integer(n_neighbors),
-    MN_ratio     = MN_ratio,
-    FP_ratio     = FP_ratio,
-    distance     = "angular"
-  )
-
-  lyt_raw <- model2d$fit_transform(as.matrix(emb_mat))
-  lyt <- reticulate::py_to_r(lyt_raw)
-  lyt <- as.matrix(lyt)
-
-  stopifnot(is.matrix(lyt))
-  stopifnot(ncol(lyt) == 2)
-  stopifnot(all(is.finite(lyt)))
-
-  colnames(lyt) <- c("x2d", "y2d")
-
-  plot_data <- bind_cols(data, as.data.frame(lyt))
-
-  # Save raw coordinates
-  saveRDS(plot_data, file.path(fig_dir, paste0(prefix, "_coords.RDS")))
-
-  # HDBSCAN regions
-  coords <- plot_data |>
-    select(x2d, y2d) |>
-    as.matrix()
-
-  cl <- dbscan::hdbscan(coords, minPts = minPts)
-
-  plot_data <- plot_data |>
-    mutate(region = cl$cluster)
-
-  saveRDS(plot_data, file.path(fig_dir, paste0(prefix, "_with_regions.RDS")))
-
-  # region sizes
-  region_sizes <- plot_data |>
-    count(region, sort = TRUE)
-
-  readr::write_csv(region_sizes, file.path(fig_dir, paste0(prefix, "_region_sizes.csv")))
-
-  # map colored by regions
-  pdf(file.path(fig_dir, paste0(prefix, "_regions.pdf")),
-      width = 8, height = 8, bg = "white")
-
-  p_regions <- plot_data |>
-    ggplot(aes(x = x2d, y = y2d, fill = factor(region))) +
-    geom_point(shape = 21, color = "white", size = 1.0, stroke = 0.15) +
-    theme_void() +
-    theme(
-      plot.background = element_rect(fill = "white", colour = NA),
-      panel.background = element_rect(fill = "white", colour = NA)
-    ) +
-    guides(fill = guide_legend(title = paste(prefix, "region")))
-
-  print(p_regions)
-  dev.off()
-
-  # centroids
-  region_centroids <- plot_data |>
-    filter(region != 0) |>
-    group_by(region) |>
-    summarise(
-      cx = mean(x2d),
-      cy = mean(y2d),
-      n_papers = n(),
-      .groups = "drop"
-    )
-
-  # representative titles
-  title_col <- c("Title", "title", "paper_title")[
-    c("Title", "title", "paper_title") %in% names(plot_data)
-  ][1]
-
-  if (is.na(title_col)) stop("Could not find a title column in data.")
-
-  rep_titles <- plot_data |>
-    filter(region != 0) |>
-    left_join(region_centroids, by = "region") |>
-    mutate(
-      dist_to_centroid = sqrt((x2d - cx)^2 + (y2d - cy)^2)
-    ) |>
-    group_by(region) |>
-    arrange(dist_to_centroid, .by_group = TRUE) |>
-    slice_head(n = 10) |>
-    ungroup() |>
-    select(
-      region,
-      id,
-      title = all_of(title_col),
-      dist_to_centroid
-    )
-
-  readr::write_csv(rep_titles, file.path(fig_dir, paste0(prefix, "_representative_titles.csv")))
-
-  # tags if present
-  tag_col <- c("tags_clean", "tags", "tag", "keywords")[
-    c("tags_clean", "tags", "tag", "keywords") %in% names(plot_data)
-  ][1]
-
-  if (!is.na(tag_col)) {
-
-    tags_long <- plot_data |>
-      filter(region != 0) |>
-      select(id, region, all_of(tag_col)) |>
-      mutate(tag_raw = .data[[tag_col]]) |>
-      mutate(
-        tag_raw = purrr::map(tag_raw, function(x) {
-          if (is.null(x)) return(character(0))
-          if (is.list(x)) return(unlist(x))
-          if (length(x) > 1) return(as.character(x))
-          x <- as.character(x)
-          unlist(strsplit(x, "\\s*[,;|]\\s*"))
-        })
-      ) |>
-      tidyr::unnest(tag_raw) |>
-      mutate(
-        tag_raw = stringr::str_trim(stringr::str_to_lower(tag_raw))
-      ) |>
-      filter(tag_raw != "")
-
-    generic_tags <- c(
-      "agent-based model",
-      "agent-based models",
-      "agent-based simulation",
-      "agent-based simulations",
-      "multi-agent system",
-      "multi-agent systems",
-      "multi-agent simulation",
-      "multi-agent simulations",
-      "complex adaptive systems",
-      "social simulation",
-      "simulation",
-      "computational model",
-      "computational models"
-    )
-
-    top_tags <- tags_long |>
-      filter(!tag_raw %in% generic_tags) |>
-      count(region, tag_raw, sort = TRUE) |>
-      group_by(region) |>
-      slice_head(n = 15) |>
-      ungroup()
-
-    readr::write_csv(top_tags, file.path(fig_dir, paste0(prefix, "_top_tags.csv")))
-
-    auto_labels <- top_tags |>
-      group_by(region) |>
-      summarise(
-        label_auto = paste(head(tag_raw, 3), collapse = " / "),
-        .groups = "drop"
-      ) |>
-      left_join(region_centroids, by = "region")
-
-    readr::write_csv(auto_labels, file.path(fig_dir, paste0(prefix, "_auto_labels.csv")))
-
-    top_tags_summary <- top_tags |>
-      group_by(region) |>
-      summarise(
-        top_tags_5 = paste(head(tag_raw, 5), collapse = " | "),
-        .groups = "drop"
-      )
-
-    region_legend <- region_centroids |>
-      left_join(auto_labels |> select(region, label_auto), by = "region") |>
-      left_join(top_tags_summary, by = "region") |>
-      arrange(region)
-
-    readr::write_csv(region_legend, file.path(fig_dir, paste0(prefix, "_legend.csv")))
-    saveRDS(region_legend, file.path(fig_dir, paste0(prefix, "_legend.RDS")))
-
-    legend_lines <- region_legend |>
-      mutate(
-        line = paste0(
-          "Region ", region,
-          " (n=", n_papers, "): ",
-          label_auto,
-          " || Top tags: ", top_tags_5
-        )
-      ) |>
-      pull(line)
-
-    readr::write_lines(legend_lines, file.path(fig_dir, paste0(prefix, "_legend.txt")))
-
-    # numbered map
-    pdf(file.path(fig_dir, paste0(prefix, "_regions_numbered.pdf")),
-        width = 8, height = 8, bg = "white")
-
-    p_regions_num <- plot_data |>
-      ggplot(aes(x = x2d, y = y2d, fill = factor(region))) +
-      geom_point(shape = 21, color = "white", size = 1.0, stroke = 0.15) +
-      geom_label(
-        data = region_legend,
-        aes(x = cx, y = cy, label = region),
-        inherit.aes = FALSE,
-        size = 3.5,
-        label.size = 0.2,
-        fill = "white"
-      ) +
-      theme_void() +
-      theme(
-        plot.background = element_rect(fill = "white", colour = NA),
-        panel.background = element_rect(fill = "white", colour = NA)
-      ) +
-      guides(fill = guide_legend(title = paste(prefix, "region")))
-
-    print(p_regions_num)
-    dev.off()
-  }
-
-  # raw no-jitter map
-  pdf(file.path(fig_dir, paste0(prefix, "_nojitter.pdf")),
-      width = 8, height = 8, bg = "white")
-
-  p_raw <- plot_data |>
-    ggplot(aes(x = x2d, y = y2d)) +
-    geom_point(shape = 21, fill = "black", color = "white", size = 1.3, stroke = 0.4) +
-    theme_void() +
-    theme(
-      plot.background = element_rect(fill = "white", colour = NA),
-      panel.background = element_rect(fill = "white", colour = NA)
-    )
-
-  print(p_raw)
-  dev.off()
-
-  cat("Finished:", prefix, "\n")
-}
-
-# -----------------------------
-# Run for all three blocks
-# -----------------------------
-make_2d_region_map(
-  emb_mat = semantic_block,
-  data = data,
-  prefix = "semantic_map",
-  fig_dir = fig_dir,
-  n_neighbors = 50,
-  MN_ratio = 2,
-  FP_ratio = 10,
-  minPts = 25
+png(
+  file.path(fig_dir, "map.png"),
+  width = 8, height = 8, res = 300, units = "in", bg = "transparent"
 )
 
-make_2d_region_map(
-  emb_mat = reference_block,
-  data = data,
-  prefix = "reference_map",
-  fig_dir = fig_dir,
-  n_neighbors = 50,
-  MN_ratio = 2,
-  FP_ratio = 10,
-  minPts = 25
-)
+data |>
+  ggplot(aes(
+    x = lyt_x + rnorm(nrow(data), sd = .3),
+    y = lyt_y + rnorm(nrow(data), sd = .3)
+  )) +
+  geom_point(
+    pch = 21,
+    fill = "black",
+    colour = "white",
+    size = 1.5,
+    stroke = .5
+  ) +
+  theme_void()
 
-make_2d_region_map(
-  emb_mat = author_block,
-  data = data,
-  prefix = "author_map",
-  fig_dir = fig_dir,
-  n_neighbors = 50,
-  MN_ratio = 2,
-  FP_ratio = 10,
-  minPts = 25
-)
+dev.off()
 
-cat("Done.\n")
+
+
+
+
+
+
+
+
+
+
+
+
+# require(tidyverse)
+# require(reticulate)
+# require(dbscan)
+
+# Sys.setenv(RETICULATE_CONDA = "~/apps/miniforge3/bin/conda")
+# use_condaenv("mapping_abm", required = TRUE)
+# print(py_config())
+
+# source("Mapping_landscape_ABM/_cubes.R")
+# require(remotes)
+# Rcpp::sourceCpp("Mapping_landscape_ABM/_helpers.cpp")
+
+# if (!requireNamespace("memnet", quietly = TRUE)) {
+#   remotes::install_github("dwulff/memnet")
+# }
+# library(memnet)
+
+# pacmap <- import("pacmap")
+
+# # -----------------------------
+# # Load data
+# # -----------------------------
+# data = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/data_cleaned_filtered_tagged_clustered_MN_ratio2.RDS")
+# emb  = readRDS("/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/embs_1000/combined_emb.RDS")
+
+# fig_dir <- "/rds/projects/z/zhanglp-vwendler-core/ABM_Mapping/Data/figures/illustration_1000_try3"
+# dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+# cat("Saving figures to:", fig_dir, "\n")
+
+# stopifnot(nrow(emb) == nrow(data))
+
+# # -----------------------------
+# # Split embedding blocks
+# # -----------------------------
+# author_block    <- emb[, grepl("^auth_", colnames(emb)), drop = FALSE]
+# reference_block <- emb[, grepl("^ref_",  colnames(emb)), drop = FALSE]
+# semantic_block  <- emb[, grepl("^sem_",  colnames(emb)), drop = FALSE]
+
+# # -----------------------------
+# # 3D model for cube illustrations
+# # -----------------------------
+# set.seed(42)
+# model3d <- pacmap$PaCMAP(
+#   n_components = as.integer(3),
+#   n_neighbors  = as.integer(50),
+#   MN_ratio     = 2,
+#   FP_ratio     = 10.0,
+#   distance     = "angular"
+# )
+
+# get_cube <- function(emb_mat, col) {
+#   clusters_raw <- model3d$fit_transform(as.matrix(emb_mat))
+#   clusters <- reticulate::py_to_r(clusters_raw)
+#   clusters <- as.matrix(clusters)
+
+#   stopifnot(is.matrix(clusters))
+#   stopifnot(ncol(clusters) == 3)
+#   stopifnot(all(is.finite(clusters)))
+
+#   to01 <- function(x, f = 10) {
+#     rng <- max(x) - min(x)
+#     if (rng == 0) return(rep(f / 2, length(x)))
+#     (x - min(x)) / rng * f
+#   }
+
+#   clusters <- apply(clusters, 2, to01)
+
+#   angles <- c(30, 36.8, 23)
+#   d <- 50
+#   size <- 10
+#   sq <- (square(angles, d = d, size = size) |>
+#            apply(2, to01, f = 12) |>
+#            t() + c(1.5, -1, 0)) |>
+#     t()
+
+#   plot.new()
+#   plot.window(xlim = c(.15, 1.35) * 10, ylim = c(-.1, 1.1) * 10)
+#   segs(sq)
+
+#   cubes <- apply(clusters, 1, function(x) {
+#     list(square(angles, d = d, size = .25, orig = x[c(1, 2, 3)], scale = TRUE))
+#   }) |>
+#     lapply(function(x) x[[1]])
+
+#   pos <- sapply(cubes, function(x) max(x[, 3]))
+#   cubes <- cubes[order(pos)]
+
+#   set.seed(42)
+#   cubes <- cubes[sample(length(cubes), min(1000, length(cubes)))]
+
+#   for (i in seq_along(cubes)) {
+#     faces(cubes[[i]], col = col, border = "white")
+#   }
+
+#   segs(sq, 2)
+# }
+
+# # -----------------------------
+# # Save cube illustrations
+# # -----------------------------
+# pdf(file.path(fig_dir, "author_cube.pdf"), width = 8, height = 8, bg = "white")
+# get_cube(author_block, viridis::mako(1, begin = .7))
+# dev.off()
+
+# pdf(file.path(fig_dir, "reference_cube.pdf"), width = 8, height = 8, bg = "white")
+# get_cube(reference_block, viridis::mako(1, begin = .5))
+# dev.off()
+
+# pdf(file.path(fig_dir, "semantic_cube.pdf"), width = 8, height = 8, bg = "white")
+# get_cube(semantic_block, viridis::mako(1, begin = .3))
+# dev.off()
+
+# # -----------------------------
+# # Helper function for 2D region maps
+# # -----------------------------
+# make_2d_region_map <- function(
+#   emb_mat,
+#   data,
+#   prefix,
+#   fig_dir,
+#   n_neighbors = 50,
+#   MN_ratio = 2,
+#   FP_ratio = 10,
+#   minPts = 25
+# ) {
+#   cat("Starting:", prefix, "\n")
+
+#   model2d <- pacmap$PaCMAP(
+#     n_components = as.integer(2),
+#     n_neighbors  = as.integer(n_neighbors),
+#     MN_ratio     = MN_ratio,
+#     FP_ratio     = FP_ratio,
+#     distance     = "angular"
+#   )
+
+#   lyt_raw <- model2d$fit_transform(as.matrix(emb_mat))
+#   lyt <- reticulate::py_to_r(lyt_raw)
+#   lyt <- as.matrix(lyt)
+
+#   stopifnot(is.matrix(lyt))
+#   stopifnot(ncol(lyt) == 2)
+#   stopifnot(all(is.finite(lyt)))
+
+#   colnames(lyt) <- c("x2d", "y2d")
+
+#   plot_data <- bind_cols(data, as.data.frame(lyt))
+
+#   # Save raw coordinates
+#   saveRDS(plot_data, file.path(fig_dir, paste0(prefix, "_coords.RDS")))
+
+#   # HDBSCAN regions
+#   coords <- plot_data |>
+#     select(x2d, y2d) |>
+#     as.matrix()
+
+#   cl <- dbscan::hdbscan(coords, minPts = minPts)
+
+#   plot_data <- plot_data |>
+#     mutate(region = cl$cluster)
+
+#   saveRDS(plot_data, file.path(fig_dir, paste0(prefix, "_with_regions.RDS")))
+
+#   # region sizes
+#   region_sizes <- plot_data |>
+#     count(region, sort = TRUE)
+
+#   readr::write_csv(region_sizes, file.path(fig_dir, paste0(prefix, "_region_sizes.csv")))
+
+#   # map colored by regions
+#   pdf(file.path(fig_dir, paste0(prefix, "_regions.pdf")),
+#       width = 8, height = 8, bg = "white")
+
+#   p_regions <- plot_data |>
+#     ggplot(aes(x = x2d, y = y2d, fill = factor(region))) +
+#     geom_point(shape = 21, color = "white", size = 1.0, stroke = 0.15) +
+#     theme_void() +
+#     theme(
+#       plot.background = element_rect(fill = "white", colour = NA),
+#       panel.background = element_rect(fill = "white", colour = NA)
+#     ) +
+#     guides(fill = guide_legend(title = paste(prefix, "region")))
+
+#   print(p_regions)
+#   dev.off()
+
+#   # centroids
+#   region_centroids <- plot_data |>
+#     filter(region != 0) |>
+#     group_by(region) |>
+#     summarise(
+#       cx = mean(x2d),
+#       cy = mean(y2d),
+#       n_papers = n(),
+#       .groups = "drop"
+#     )
+
+#   # representative titles
+#   title_col <- c("Title", "title", "paper_title")[
+#     c("Title", "title", "paper_title") %in% names(plot_data)
+#   ][1]
+
+#   if (is.na(title_col)) stop("Could not find a title column in data.")
+
+#   rep_titles <- plot_data |>
+#     filter(region != 0) |>
+#     left_join(region_centroids, by = "region") |>
+#     mutate(
+#       dist_to_centroid = sqrt((x2d - cx)^2 + (y2d - cy)^2)
+#     ) |>
+#     group_by(region) |>
+#     arrange(dist_to_centroid, .by_group = TRUE) |>
+#     slice_head(n = 10) |>
+#     ungroup() |>
+#     select(
+#       region,
+#       id,
+#       title = all_of(title_col),
+#       dist_to_centroid
+#     )
+
+#   readr::write_csv(rep_titles, file.path(fig_dir, paste0(prefix, "_representative_titles.csv")))
+
+#   # tags if present
+#   tag_col <- c("tags_clean", "tags", "tag", "keywords")[
+#     c("tags_clean", "tags", "tag", "keywords") %in% names(plot_data)
+#   ][1]
+
+#   if (!is.na(tag_col)) {
+
+#     tags_long <- plot_data |>
+#       filter(region != 0) |>
+#       select(id, region, all_of(tag_col)) |>
+#       mutate(tag_raw = .data[[tag_col]]) |>
+#       mutate(
+#         tag_raw = purrr::map(tag_raw, function(x) {
+#           if (is.null(x)) return(character(0))
+#           if (is.list(x)) return(unlist(x))
+#           if (length(x) > 1) return(as.character(x))
+#           x <- as.character(x)
+#           unlist(strsplit(x, "\\s*[,;|]\\s*"))
+#         })
+#       ) |>
+#       tidyr::unnest(tag_raw) |>
+#       mutate(
+#         tag_raw = stringr::str_trim(stringr::str_to_lower(tag_raw))
+#       ) |>
+#       filter(tag_raw != "")
+
+#     generic_tags <- c(
+#       "agent-based model",
+#       "agent-based models",
+#       "agent-based simulation",
+#       "agent-based simulations",
+#       "multi-agent system",
+#       "multi-agent systems",
+#       "multi-agent simulation",
+#       "multi-agent simulations",
+#       "complex adaptive systems",
+#       "social simulation",
+#       "simulation",
+#       "computational model",
+#       "computational models"
+#     )
+
+#     top_tags <- tags_long |>
+#       filter(!tag_raw %in% generic_tags) |>
+#       count(region, tag_raw, sort = TRUE) |>
+#       group_by(region) |>
+#       slice_head(n = 15) |>
+#       ungroup()
+
+#     readr::write_csv(top_tags, file.path(fig_dir, paste0(prefix, "_top_tags.csv")))
+
+#     auto_labels <- top_tags |>
+#       group_by(region) |>
+#       summarise(
+#         label_auto = paste(head(tag_raw, 3), collapse = " / "),
+#         .groups = "drop"
+#       ) |>
+#       left_join(region_centroids, by = "region")
+
+#     readr::write_csv(auto_labels, file.path(fig_dir, paste0(prefix, "_auto_labels.csv")))
+
+#     top_tags_summary <- top_tags |>
+#       group_by(region) |>
+#       summarise(
+#         top_tags_5 = paste(head(tag_raw, 5), collapse = " | "),
+#         .groups = "drop"
+#       )
+
+#     region_legend <- region_centroids |>
+#       left_join(auto_labels |> select(region, label_auto), by = "region") |>
+#       left_join(top_tags_summary, by = "region") |>
+#       arrange(region)
+
+#     readr::write_csv(region_legend, file.path(fig_dir, paste0(prefix, "_legend.csv")))
+#     saveRDS(region_legend, file.path(fig_dir, paste0(prefix, "_legend.RDS")))
+
+#     legend_lines <- region_legend |>
+#       mutate(
+#         line = paste0(
+#           "Region ", region,
+#           " (n=", n_papers, "): ",
+#           label_auto,
+#           " || Top tags: ", top_tags_5
+#         )
+#       ) |>
+#       pull(line)
+
+#     readr::write_lines(legend_lines, file.path(fig_dir, paste0(prefix, "_legend.txt")))
+
+#     # numbered map
+#     pdf(file.path(fig_dir, paste0(prefix, "_regions_numbered.pdf")),
+#         width = 8, height = 8, bg = "white")
+
+#     p_regions_num <- plot_data |>
+#       ggplot(aes(x = x2d, y = y2d, fill = factor(region))) +
+#       geom_point(shape = 21, color = "white", size = 1.0, stroke = 0.15) +
+#       geom_label(
+#         data = region_legend,
+#         aes(x = cx, y = cy, label = region),
+#         inherit.aes = FALSE,
+#         size = 3.5,
+#         label.size = 0.2,
+#         fill = "white"
+#       ) +
+#       theme_void() +
+#       theme(
+#         plot.background = element_rect(fill = "white", colour = NA),
+#         panel.background = element_rect(fill = "white", colour = NA)
+#       ) +
+#       guides(fill = guide_legend(title = paste(prefix, "region")))
+
+#     print(p_regions_num)
+#     dev.off()
+#   }
+
+#   # raw no-jitter map
+#   pdf(file.path(fig_dir, paste0(prefix, "_nojitter.pdf")),
+#       width = 8, height = 8, bg = "white")
+
+#   p_raw <- plot_data |>
+#     ggplot(aes(x = x2d, y = y2d)) +
+#     geom_point(shape = 21, fill = "black", color = "white", size = 1.3, stroke = 0.4) +
+#     theme_void() +
+#     theme(
+#       plot.background = element_rect(fill = "white", colour = NA),
+#       panel.background = element_rect(fill = "white", colour = NA)
+#     )
+
+#   print(p_raw)
+#   dev.off()
+
+#   cat("Finished:", prefix, "\n")
+# }
+
+# # -----------------------------
+# # Run for all three blocks
+# # -----------------------------
+# make_2d_region_map(
+#   emb_mat = semantic_block,
+#   data = data,
+#   prefix = "semantic_map",
+#   fig_dir = fig_dir,
+#   n_neighbors = 50,
+#   MN_ratio = 2,
+#   FP_ratio = 10,
+#   minPts = 25
+# )
+
+# make_2d_region_map(
+#   emb_mat = reference_block,
+#   data = data,
+#   prefix = "reference_map",
+#   fig_dir = fig_dir,
+#   n_neighbors = 50,
+#   MN_ratio = 2,
+#   FP_ratio = 10,
+#   minPts = 25
+# )
+
+# make_2d_region_map(
+#   emb_mat = author_block,
+#   data = data,
+#   prefix = "author_map",
+#   fig_dir = fig_dir,
+#   n_neighbors = 50,
+#   MN_ratio = 2,
+#   FP_ratio = 10,
+#   minPts = 25
+# )
+
+# cat("Done.\n")
 
 
 
